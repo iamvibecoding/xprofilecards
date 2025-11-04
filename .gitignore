@@ -1,0 +1,21 @@
+# This .gitignore file should be in your root 'xprofilecards' directory
+
+### General ###
+.DS_Store
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+
+### Node.js / Backend ###
+backend/node_modules/
+backend/dist/
+backend/build/
+
+### Next.js / Frontend ###
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.cache
+frontend/coverage/
+frontend/next-env.d.ts
