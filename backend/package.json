@@ -1,13 +1,22 @@
 {
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Scraping API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "npx ts-node -r dotenv/config src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
   "dependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "puppeteer": "^24.28.0",
+    "puppeteer": "^24.27.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^24.9.2"
