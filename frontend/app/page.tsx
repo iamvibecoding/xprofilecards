@@ -35,11 +35,6 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  const getApiEndpoint = (): string => {
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${hostname}:4000`;
-  };
-
   const validateAndNormalizeUrl = useCallback((inputUrl: string): { valid: boolean; error?: string; normalizedUrl?: string } => {
     if (!inputUrl.trim()) {
       return { valid: false, error: 'Please enter a URL or handle' };
@@ -84,7 +79,6 @@ export default function HomePage() {
 
     const validation = validateAndNormalizeUrl(url);
     if (!validation.valid) {
-      // ✅ FIX: Convert 'undefined' to 'null' for the state setter
       setError(validation.error ?? null);
       showToast(validation.error || 'Invalid URL', 'error', 3000);
       return;
@@ -93,9 +87,17 @@ export default function HomePage() {
     setIsLoading(true);
     showToast('Fetching profile data...', 'loading', 3000); 
 
+    const apiEndpoint = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiEndpoint) {
+      console.error("API URL is not configured. NEXT_PUBLIC_API_URL is missing.");
+      setError("App is not configured. Please contact support.");
+      showToast("❌ App is not configured.", "error", 4000);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const apiEndpoint = getApiEndpoint();
-      
       const response = await axios.post(
         `${apiEndpoint}/api/scrape-twitter`,
         { twitterUrl: validation.normalizedUrl },
@@ -115,18 +117,24 @@ export default function HomePage() {
 
       let errorMsg = 'Failed to scrape profile';
 
+      // --- FIX #1: This check was redundant and would never be hit, as the check
+      // for !apiEndpoint happens *before* the try...catch block. ---
+      // if (err.message?.includes('API URL is not configured')) {
+      //   errorMsg = err.message;
+      // }
+      // else 
       if (err.response?.status === 400) {
         errorMsg = err.response?.data?.error || 'Invalid Twitter/X URL';
       } else if (err.response?.status === 500) {
         errorMsg = err.response?.data?.error || 'Could not load profile. Check if profile is public.';
       } else if (err.code === 'ECONNREFUSED') {
-        errorMsg = '❌ Backend not running on port 4000';
+        errorMsg = '❌ Cannot connect to backend.';
       } else if (['ENOTFOUND', 'ERR_NAME_NOT_RESOLVED'].includes(err.code)) {
         errorMsg = '❌ Cannot reach backend. Check network.';
       } else if (['ETIMEDOUT', 'ECONNABORTED'].includes(err.code)) {
-        errorMsg = '⏱️ Request timeout. Try again.';
+        errorMsg = '⏱️ Request timeout. The server is slow, try again.';
       } else if (err.message?.includes('Network Error')) {
-        errorMsg = '❌ Network error. Check your connection.';
+        errorMsg = '❌ Network error. Check your connection or if the backend is down.';
       } else if (err.response?.data?.error) {
         errorMsg = err.response.data.error;
       } else {
@@ -168,7 +176,7 @@ export default function HomePage() {
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-br from-slate-50 via-sky-50 to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-black">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 dark:opacity-10 animate-blob hidden sm:block" />
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 dark:opacity-10 animate-blob animation-delay-2000 hidden sm:block" />
+        <div className="absolute top-0 right-1/ar w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 dark:opacity-10 animate-blob animation-delay-2000 hidden sm:block" />
         <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15 dark:opacity-10 animate-blob animation-delay-4000 hidden sm:block" />
       </div>
 
@@ -316,7 +324,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="tech" className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-slate-200/50 dark:border-slate-800/5ANd9GcQ">
+        {/* --- FIX #2: The class name here was corrupted. --- */}
+        <section id="tech" className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-slate-200/50 dark:border-slate-800/50">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900 dark:text-slate-100">
               Built with modern tech
