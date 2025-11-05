@@ -46,8 +46,6 @@ app.use(cors(corsOptions));
 
 const PORT = process.env.PORT || 4000;
 
-// ... all other code remains the same ...
-
 app.post('/api/scrape-twitter', async (req, res) => {
   let { twitterUrl } = req.body;
 
@@ -71,10 +69,13 @@ app.post('/api/scrape-twitter', async (req, res) => {
   console.log(`Scraping started for screenName: ${screenName} at URL: ${twitterUrl}`);
   let browser;
   try {
-    // --- MODIFICATION FOR KOYEB/RENDER ---
+    // --- FINAL KVM SERVER CONFIGURATION ---
     browser = await puppeteer.launch({
       headless: true,
-      // These args are recommended for Docker environments
+      // This tells Puppeteer to use the system-wide Chrome
+      executablePath: '/usr/bin/google-chrome-stable', 
+      
+      // These args are for running in a server environment
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -82,11 +83,11 @@ app.post('/api/scrape-twitter', async (req, res) => {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--single-process', // This one is important in low-RAM environments
+        '--single-process', 
         '--disable-gpu'
       ],
     });
-    // --- END MODIFICATION ---
+    // --- END CONFIGURATION ---
 
     const page = await browser.newPage();
     await page.setUserAgent(
@@ -95,13 +96,13 @@ app.post('/api/scrape-twitter', async (req, res) => {
     
     await page.goto(twitterUrl, { waitUntil: 'networkidle2' });
 
-    // --- NEW LOGIC: Wait for the JSON-LD schema tag ---
+    // --- Wait for the JSON-LD schema tag ---
     const schemaSelector = `script[data-testid="UserProfileSchema-test"]`;
     console.log(`Waiting for JSON-LD schema tag: ${schemaSelector}`);
     await page.waitForSelector(schemaSelector, { timeout: 15000 });
     console.log("JSON-LD schema found. Parsing data...");
 
-    // --- NEW LOGIC: Extract and parse the JSON-LD schema ---
+    // --- Extract and parse the JSON-LD schema ---
     const data = await page.evaluate((selector) => {
       const element = document.querySelector(selector);
       if (!element || !element.textContent) {
@@ -115,25 +116,22 @@ app.post('/api/scrape-twitter', async (req, res) => {
         return null;
       }
       
-      // Find the follower and following counts
-      // X.com confusingly calls "Followers" -> "Follows" and "Following" -> "Friends"
       const stats = mainEntity.interactionStatistic || [];
       const followersStat = stats.find((s: any) => s.name === "Follows");
       const followingStat = stats.find((s: any) => s.name === "Friends");
 
       return {
         name: mainEntity.name,
-        // Get handle from the URL in the schema
         handle: `@${mainEntity.url.split('/').pop()}`,
         bio: mainEntity.description,
         avatarUrl: mainEntity.image?.contentUrl,
         followingCount: followingStat?.userInteractionCount.toString() || null,
         followersCount: followersStat?.userInteractionCount.toString() || null,
         location: mainEntity.homeLocation?.name || null,
-        website: null, // This schema doesn't seem to provide the website URL
+        website: null,
       };
-    }, schemaSelector); // Pass selector into the browser's context
-    // --- END NEW LOGIC ---
+    }, schemaSelector); 
+    // --- END LOGIC ---
 
     await browser.close();
 
