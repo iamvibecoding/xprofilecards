@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import Script from 'next/script'; // --- 1. IMPORT THE SCRIPT COMPONENT ---
 
 import Navbar from '@/components/site/Navbar';
 import Footer from '@/components/site/Footer';
@@ -181,8 +182,23 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
         {/* === END: MANUAL FAVICON/MANIFEST LINKS === */}
         
-        {/* Removed geographic meta tags, per your clarification */}
+        {/* --- 2. ADDED GOOGLE ANALYTICS SCRIPT HERE --- */}
+        <Script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-CYNXJK14L1"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-CYNXJK14L1');
+          `}
+        </Script>
       </head>
+      
+      {/* --- 3. REMOVED INVALID SCRIPT FROM HERE --- */}
       
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider
