@@ -12,15 +12,19 @@ app.use(express.json());
 
 // --- CORS Whitelist Configuration ---
 
-// 1. Define your whitelist of allowed domains
-const allowedOrigins = [
-  'https://xprofilecards.com', // Your frontend app
-  'https://twitter-card-2b4xsa4gi-psychosidxs-projects.vercel.app/',
-  'http://localhost:3000', // For local development (e.g., React)
-  // Add any other domains you need to allow
-];
+// 1. Get allowed domains from an environment variable
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',') // Split by comma
+  : []; // Default to empty array if not set
 
-// 2. Configure CORS options
+// 2. Add localhost for local testing
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000');
+}
+
+console.log("Allowed Origins:", allowedOrigins); // Good for debugging
+
+// 3. Configure CORS options
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (e.g., Postman, server-to-server)
@@ -29,17 +33,20 @@ const corsOptions = {
       callback(null, true);
     } else {
       // Block requests from other origins
+      console.warn(`CORS blocked for origin: ${origin}`); // Log blocked requests
       callback(new Error('Not allowed by CORS'));
     }
   },
 };
 
-// 3. Use the configured CORS options
+// 4. Use the configured CORS options
 app.use(cors(corsOptions));
 
 // --- End of CORS Configuration ---
 
 const PORT = process.env.PORT || 4000;
+
+// ... all other code remains the same ...
 
 app.post('/api/scrape-twitter', async (req, res) => {
   let { twitterUrl } = req.body;
@@ -64,7 +71,23 @@ app.post('/api/scrape-twitter', async (req, res) => {
   console.log(`Scraping started for screenName: ${screenName} at URL: ${twitterUrl}`);
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: true });
+    // --- MODIFICATION FOR KOYEB/RENDER ---
+    browser = await puppeteer.launch({
+      headless: true,
+      // These args are recommended for Docker environments
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process', // This one is important in low-RAM environments
+        '--disable-gpu'
+      ],
+    });
+    // --- END MODIFICATION ---
+
     const page = await browser.newPage();
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
