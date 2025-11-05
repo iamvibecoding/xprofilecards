@@ -1,4 +1,4 @@
-# X Cardify
+# X Profile Card Generator
 
 Transform any X profile into stunning, shareable cards with 9+ premium themes.
 

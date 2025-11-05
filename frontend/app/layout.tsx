@@ -19,26 +19,37 @@ const geistMono = Geist_Mono({
   display: 'swap',
 });
 
+// --- ENHANCED METADATA ---
 export const metadata: Metadata = {
   metadataBase: new URL('https://xprofilecards.com'),
   title: {
-    default: 'X Profile Cards – Create Beautiful X Profile Cards',
+    default: 'X Profile Cards – 100% Free X (Twitter) Profile Card Generator',
     template: '%s | X Profile Cards',
   },
   description:
-    'Transform any X profile into a stunning, shareable card. Choose from 26+ premium themes and download high-quality PNGs instantly.',
+    'Transform any X (Twitter) profile into a beautiful, shareable card with our 100% free X profile card generator. Choose from 26+ premium themes and download high-quality PNGs instantly.',
+  
+  // Curated keywords from your list for SEO
   keywords: [
-    'X profile card',
-    'Twitter profile card',
-    'profile generator',
-    'card maker',
-    'X.com',
-    'profile art',
-    'social media',
+    'x profile cards',
+    'create twitter cards',
+    'profile cards for x',
+    'twitter card generator',
+    'x card generator',
+    'free twitter profile card',
+    'best x card generator',
+    'free x card maker',
+    'how to add twitter cards',
+    'x card generator india',
+    'usa twitter card generator',
+    'uk twitter card generator',
+    'mumbai twitter card maker',
+    'xprofilecards.com',
+    'iamvibecoder',
+    'siddhesh kamath',
   ],
   
-  manifest: '', 
-  icons: {},
+  // Removed manifest and icons from here, as you are adding them manually in <head>
   
   themeColor: '#ffffff',
   
@@ -50,7 +61,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://xprofilecards.com',
     siteName: 'X Profile Cards',
-    title: 'X Profile Cards – Create Beautiful X Profile Cards',
+    title: 'X Profile Cards – 100% Free X (Twitter) Profile Card Generator',
     description:
       'Transform your X profile into a beautiful, shareable card with premium themes.',
     images: [
@@ -67,7 +78,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@iamvibecoder',
     creator: '@iamvibecoder',
-    title: 'X Profile Cards – Create Beautiful X Profile Cards',
+    title: 'X Profile Cards – 100% Free X (Twitter) Profile Card Generator',
     description:
       'Transform your X profile into a beautiful, shareable card with premium themes.',
     images: ['/twitter.png'],
@@ -82,10 +93,70 @@ export const metadata: Metadata = {
   authors: [
     {
       name: 'Siddhesh',
-      url: 'https.com/iamvibecoder',
+      url: 'https://x.com/iamvibecoder',
     },
   ],
 };
+
+// --- JSON-LD SCHEMA FOR "Generative Engine Optimization (GEO)" & SEO ---
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      'name': 'X Profile Cards',
+      'operatingSystem': 'Web',
+      'applicationCategory': 'WebApplication',
+      'description': 'A 100% free tool to transform any X (Twitter) profile into beautiful, shareable cards. Choose from 26+ premium themes and download high-quality PNGs instantly.',
+      'keywords': 'x profile cards, create twitter cards, profile cards for x, twitter card generator, free twitter profile card',
+      'url': 'https://xprofilecards.com',
+      'author': {
+        '@type': 'Person',
+        'name': 'Siddhesh Kamath',
+        'url': 'https://x.com/iamvibecoder'
+      },
+      'offers': {
+        '@type': 'Offer',
+        'price': '0',
+        'priceCurrency': 'USD'
+      },
+      'mainEntityOfPage': {
+        '@type': 'WebPage',
+        '@id': 'https://xprofilecards.com'
+      }
+    },
+    {
+      '@type': 'FAQPage',
+      'mainEntity': [
+        {
+          '@type': 'Question',
+          'name': 'Is X Profile Cards free to use?',
+          'acceptedAnswer': {
+            '@type': 'Answer',
+            'text': 'Yes, X Profile Cards is a 100% free tool for personal, non-commercial use. You can create and share cards on social media.'
+          }
+        },
+        {
+          '@type': 'Question',
+          'name': 'Why did I get an error when generating a card?',
+          'acceptedAnswer': {
+            '@type': 'Answer',
+            'text': 'Errors can occur if the X (Twitter) profile is private, suspended, or does not exist. It can also happen if the server is busy. Please double-check the handle and try again.'
+          }
+        },
+        {
+          '@type': 'Question',
+          'name': 'Who is the author of X Profile Cards?',
+          'acceptedAnswer': {
+            '@type': 'Answer',
+            'text': 'This project was created by Siddhesh Kamath. You can find him on X as @iamvibecoder or on GitHub as @iamvibecoding.'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 
 export default function RootLayout({
   children,
@@ -93,12 +164,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
+        {/* --- ADDED: JSON-LD SCRIPT (Generative Engine Optimization) --- */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        
+        {/* === START: MANUAL FAVICON/MANIFEST LINKS (Restored as requested) === */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="theme-color" content="#ffffff" />
-        <link rel="canonical" href="https://xprofilecards.com" />
-        
-        {/* === START MANUAL FAVICON/MANIFEST LINKS === */}
-        
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
@@ -106,8 +179,9 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="32x32" href="/web-app-manifest-512x512.png" />
         <link rel="icon" type="image/png" sizes="96x96" href="/web-app-manifest-512x512.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+        {/* === END: MANUAL FAVICON/MANIFEST LINKS === */}
         
-        {/* === END MANUAL FAVICON/MANIFEST LINKS === */}
+        {/* Removed geographic meta tags, per your clarification */}
       </head>
       
       <body className="min-h-screen bg-background text-foreground antialiased">

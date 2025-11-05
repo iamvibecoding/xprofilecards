@@ -11,7 +11,8 @@ import {
   NavigationMenuLink,
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
-import { Github, Menu, X as CloseIcon } from 'lucide-react';
+// Import Coffee icon
+import { Github, Menu, X as CloseIcon, Coffee } from 'lucide-react';
 import { ThemeToggle } from '@/components/site/ThemeToggle';
 
 const XLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -55,10 +56,8 @@ export default function Navbar() {
               alt="X Profile Cards Logo"
               width={28}
               height={28}
-              // FIX: Changed from rounded-full to rounded-md to match the logo shape
-              className="rounded-md border border-slate-200"
+              className="rounded-full border border-slate-200"
             />
-            {/* FIX: Replaced gradient with clean, solid text for a modern look */}
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
               X Profile Cards
             </span>
@@ -84,7 +83,6 @@ export default function Navbar() {
           </NavigationMenu>
 
           <div className="hidden md:flex items-center gap-2">
-            {/* FIX: Restored text to buttons for clarity */}
             <Button asChild variant="outline" size="sm" className="h-9">
               <Link href="https://github.com/iamvibecoding" target="_blank" rel="noreferrer">
                 <Github className="mr-2 h-4 w-4" />
@@ -101,6 +99,20 @@ export default function Navbar() {
                 Follow
               </Link>
             </Button>
+            
+            {/* --- UPDATED THIS BUTTON (Icon first) --- */}
+            <Button
+              asChild
+              size="sm"
+              className="h-9 bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg"
+            >
+              <Link href="https://buymeacoffee.com/iamvibecoder" target="_blank" rel="noreferrer">
+                <Coffee className="mr-2 h-4 w-4" />
+                Support
+              </Link>
+            </Button>
+            {/* --- END OF UPDATED BUTTON --- */}
+
             <ThemeToggle />
           </div>
 
@@ -122,33 +134,45 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 top-16 z-40 md:hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        // --- FIX: Changed z-40 to z-50 ---
+        <div className="fixed inset-0 top-16 z-50 md:hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div
             className="absolute inset-0 bg-black/20 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
 
           <div className="relative bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800 shadow-xl">
-            <nav className="container mx-auto px-4 py-6 flex flex-col gap-4">
-              <Link
-                href="/#how-it-works"
-                onClick={handleNavClick}
-                className="px-4 py-3 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-900 hover:text-blue-600 transition-colors font-medium"
+            <nav className="container mx-auto px-4 py-6 flex flex-col gap-2">
+              {/* --- FIX: Converted links to buttons for consistency --- */}
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full justify-start font-medium text-base text-slate-700 dark:text-slate-300"
               >
-                How it works
-              </Link>
-              <Link
-                href="/#tech"
-                onClick={handleNavClick}
-                className="px-4 py-3 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-900 hover:text-blue-600 transition-colors font-medium"
+                <Link
+                  href="/#how-it-works"
+                  onClick={handleNavClick}
+                >
+                  How it works
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full justify-start font-medium text-base text-slate-700 dark:text-slate-300"
               >
-                Tech Stack
-              </Link>
+                <Link
+                  href="/#tech"
+                  onClick={handleNavClick}
+                >
+                  Tech Stack
+                </Link>
+              </Button>
 
               <div className="border-t border-slate-200 dark:border-slate-800 my-2" />
 
               <div className="flex flex-col gap-2">
-                <Button asChild variant="outline" className="w-full justify-start">
+                <Button asChild variant="outline" className="w-full justify-start text-base py-6">
                   <Link
                     href="https://github.com/iamvibecoding"
                     target="_blank"
@@ -161,7 +185,7 @@ export default function Navbar() {
                 </Button>
                 <Button
                   asChild
-                  className="w-full justify-start bg-black hover:bg-gray-900 text-white"
+                  className="w-full justify-start bg-black hover:bg-gray-900 text-white text-base py-6"
                 >
                   <Link
                     href="https://x.com/iamvibecoder?s=21"
@@ -173,6 +197,24 @@ export default function Navbar() {
                     Follow on X
                   </Link>
                 </Button>
+
+                {/* --- FIX: Changed bg-yellow-300 to 400 for consistency --- */}
+                <Button
+                  asChild
+                  className="w-full justify-start bg-yellow-400 hover:bg-yellow-500 text-black text-base py-6"
+                >
+                  <Link
+                    href="https://buymeacoffee.com/iamvibecoder"
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={handleNavClick}
+                  >
+                    <Coffee className="mr-2 h-4 w-4" />
+                    Support on Buy Me a Coffee
+                  </Link>
+                </Button>
+                {/* --- END OF FIX --- */}
+
               </div>
             </nav>
           </div>

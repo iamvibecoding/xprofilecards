@@ -10,6 +10,12 @@ import { themes, Theme } from '@/lib/themes';
 import { Loader2, Link, Download, Code, Zap, Palette, Sparkles, ArrowRight } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import Image from 'next/image';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // --- Type Definition ---
 export interface ProfileData {
@@ -24,7 +30,7 @@ export interface ProfileData {
 }
 
 // --- Component Definition ---
-export default function HomePage() {
+export default function Page() {
   const [mounted, setMounted] = useState(false);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -116,13 +122,7 @@ export default function HomePage() {
       console.error('API Error:', err);
 
       let errorMsg = 'Failed to scrape profile';
-
-      // --- FIX #1: This check was redundant and would never be hit, as the check
-      // for !apiEndpoint happens *before* the try...catch block. ---
-      // if (err.message?.includes('API URL is not configured')) {
-      //   errorMsg = err.message;
-      // }
-      // else 
+      
       if (err.response?.status === 400) {
         errorMsg = err.response?.data?.error || 'Invalid Twitter/X URL';
       } else if (err.response?.status === 500) {
@@ -154,11 +154,12 @@ export default function HomePage() {
     }
   };
 
+  // Updated steps data
   const steps = [
-    { icon: Link, title: 'Input Link', description: 'Paste your X.com profile URL or handle.' },
-    { icon: Zap, title: 'Scrape Data', description: 'Fetch public profile instantly.' },
-    { icon: Palette, title: 'Render Themes', description: 'Preview 26+ unique card designs.' },
-    { icon: Download, title: 'Export PNG', description: 'Download high-quality images.' },
+    { icon: Link, title: 'Input Link', description: 'Paste your X.com profile URL or just the @handle.' },
+    { icon: Zap, title: 'Scrape Data', description: 'Our server instantly fetches all public profile data.' },
+    { icon: Palette, title: 'Render Themes', description: 'Preview your card in 26+ unique designs.' },
+    { icon: Download, title: 'Export PNG', description: 'Download high-quality PNGs to share anywhere.' },
   ];
 
   const techStack = [
@@ -173,8 +174,15 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-br from-slate-50 via-sky-50 to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-black">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+      {/* NOTE ON SEO: 
+        Because this is a Client Component ('use client'), 
+        you cannot export the 'metadata' object from this file.
+        To add SEO tags (title, description), you must add them
+        to your root 'app/layout.tsx' file.
+      */}
+      <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-br from-slate-50 via-sky-50 to-slate-50 dark:from-slate-950 dark:via-slate-950 black:to-black">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808026_1px,transparent_1px),linear-gradient(to_bottom,#80808026_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff1a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff1a_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+        
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 dark:opacity-10 animate-blob hidden sm:block" />
         <div className="absolute top-0 right-1/ar w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 dark:opacity-10 animate-blob animation-delay-2000 hidden sm:block" />
         <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15 dark:opacity-10 animate-blob animation-delay-4000 hidden sm:block" />
@@ -184,22 +192,23 @@ export default function HomePage() {
         <section className="px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-8 sm:pb-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-sky-100/50 dark:bg-sky-900/50 backdrop-blur-sm border border-sky-200/50 dark:border-sky-800/50">
             <Sparkles className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            <span className="text-sm font-medium text-sky-700 dark:text-sky-300">Create stunning X profile cards</span>
+            <span className="text-sm font-medium text-sky-700 dark:text-sky-300">X Profile Cards</span>
           </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-slate-900 dark:text-slate-100">
-            <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-6 text-slate-900 dark:text-slate-100">
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
               X Profile Cards
             </span>
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto font-normal">
-            Transform any X profile into beautiful, shareable cards. Choose from <span className="font-semibold text-sky-600 dark:text-sky-400">26+</span> premium themes.
+            Transform any X profile into beautiful, shareable cards with our <span className="font-semibold text-sky-600 dark:text-sky-400">100% free X profile card generator</span>. Choose from <span className="font-semibold text-sky-600 dark:text-sky-400">26+</span> premium themes.
           </p>
         </section>
 
-        <div className="relative z-50 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto mb-8 sm:mb-12">
+        <div className="relative  px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto mb-8 sm:mb-12">
           <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-sky-300 to-cyan-300 rounded-2xl blur opacity-20" />
-            <div className="relative bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/40 dark:border-slate-800/40 shadow-xl">
+            <div className="absolute -inset-1 bg-gradient-to-r from-white-800 to-slate-300 rounded-2xl blur-lg" />
+            
+            <div className="relative bg-white dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white dark:border-slate-800 shadow-xl">
               <div className="flex flex-col lg:flex-row gap-3 items-end">
                 <div className="flex-1 w-full">
                   <Input
@@ -274,7 +283,7 @@ export default function HomePage() {
         )}
 
           {profileData && (
-            <div className="px-0 sm:px-6 lg:px-8 lg:px-12 mb-24 sm:mb-32"> 
+            <div id="themes" className="px-0 sm:px-6 lg:px-8 lg:px-12 mb-24 sm:mb-32"> 
               <div className="text-center mb-12 sm:mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900 dark:text-slate-100">
                   Choose your style
@@ -298,33 +307,90 @@ export default function HomePage() {
             </div>
           )}
 
+        {/* --- 
+          START: "HOW IT WORKS" BENTO GRID 
+          --- */}
         <section id="how-it-works" className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-slate-200/50 dark:border-slate-800/50">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900 dark:text-slate-100">
               How it works
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              Four simple steps to create your custom X profile card
+              Four simple steps to create your custom X profile card.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {steps.map((step, index) => (
-              <div key={index} className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-sky-300 to-cyan-300 blur opacity-0 group-hover:opacity-25 transition-opacity" />
-                <Card className="relative h-full bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg hover:shadow-xl transition-all p-6 text-center">
-                  <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    {index + 1}
-                  </div>
-                  <step.icon className="w-8 h-8 text-sky-600 dark:text-sky-400 mx-auto mb-3" />
-                  <CardTitle className="text-lg font-semibold mb-2 text-slate-900 dark:text-slate-100">{step.title}</CardTitle>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{step.description}</p>
-                </Card>
+          
+          {/* Bento Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            
+            {/* Step 1: Wide */}
+            <div className="relative lg:col-span-2 p-8 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-xl">
+              <div className="absolute inset-0 opacity-10 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" 
+                   style={{backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ffffff' d='M0 0h16v16H0z'/%3E%3C/svg%3E\")", backgroundSize: "32px 32px"}}>
               </div>
-            ))}
+              <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-white/10 select-none opacity-50">1</span>
+              <div className="relative z-10">
+                {/* --- FIX IS HERE --- */}
+                {(() => {
+                  const Icon = steps[0].icon;
+                  return <Icon className="w-10 h-10 text-white/80 mb-4" />;
+                })()}
+                <h3 className="text-2xl font-semibold mb-2 text-white">{steps[0].title}</h3>
+                <p className="text-base text-sky-100">{steps[0].description}</p>
+              </div>
+            </div>
+
+            {/* Step 2: Normal */}
+            <div className="relative lg:col-span-1 p-8 rounded-3xl overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg">
+              <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-slate-500/10 dark:text-white/5 select-none opacity-50">2</span>
+              <div className="relative z-10">
+                {/* --- FIX IS HERE --- */}
+                {(() => {
+                  const Icon = steps[1].icon;
+                  return <Icon className="w-10 h-10 text-sky-600 dark:text-sky-400 mb-4" />;
+                })()}
+                <h3 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-100">{steps[1].title}</h3>
+                <p className="text-base text-slate-600 dark:text-slate-400">{steps[1].description}</p>
+              </div>
+            </div>
+
+            {/* Step 3: Normal */}
+            <div className="relative lg:col-span-1 p-8 rounded-3xl overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg">
+              <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-slate-500/10 dark:text-white/5 select-none opacity-50">3</span>
+              <div className="relative z-10">
+                {/* --- FIX IS HERE --- */}
+                {(() => {
+                  const Icon = steps[2].icon;
+                  return <Icon className="w-10 h-10 text-sky-600 dark:text-sky-400 mb-4" />;
+                })()}
+                <h3 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-100">{steps[2].title}</h3>
+                <p className="text-base text-slate-600 dark:text-slate-400">{steps[2].description}</p>
+              </div>
+            </div>
+
+            {/* Step 4: Wide */}
+            <div className="relative lg:col-span-2 p-8 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-xl">
+              <div className="absolute inset-0 opacity-10 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" 
+                   style={{backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ffffff' d='M0 0h16v16H0z'/%3E%3C/svg%3E\")", backgroundSize: "32px 32px"}}>
+              </div>
+              <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-white/10 select-none opacity-50">4</span>
+              <div className="relative z-10">
+                {/* --- FIX IS HERE --- */}
+                {(() => {
+                  const Icon = steps[3].icon;
+                  return <Icon className="w-10 h-10 text-white/80 mb-4" />;
+                })()}
+                <h3 className="text-2xl font-semibold mb-2 text-white">{steps[3].title}</h3>
+                <p className="text-base text-sky-100">{steps[3].description}</p>
+              </div>
+            </div>
+
           </div>
         </section>
+        {/* --- 
+          END: "HOW IT WORKS" BENTO GRID 
+          --- */}
 
-        {/* --- FIX #2: The class name here was corrupted. --- */}
         <section id="tech" className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-slate-200/50 dark:border-slate-800/50">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900 dark:text-slate-100">
@@ -334,7 +400,6 @@ export default function HomePage() {
               Powered by the latest web technologies for speed and reliability
             </p>
           </div>
-
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {techStack.map((tech, index) => (
@@ -349,9 +414,77 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+        </section>
 
+        <section id="faq" className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-slate-200/50 dark:border-slate-800/50">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900 dark:text-slate-100">
+              Frequently Asked Questions (FAQ)
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+              Questions about our X Profile Cards Generator? We have answers.
+            </p>
+          </div>
+          <div className="max-w-3xl mx-auto">
+            <Accordion type="single" collapsible className="w-full space-y-4">
+              
+              <AccordionItem value="item-1" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  Is X Profile Cards free to use?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  Yes, X Profile Cards is a <span className="font-semibold">100% free</span> tool for personal, non-commercial use. You can create and share cards on social media.
+                </AccordionContent>
+              </AccordionItem>
 
+              <AccordionItem value="item-2" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  Can I use this for my company or brand?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  Commercial use is not permitted under the standard license. For commercial licensing inquiries, please contact the author at <a href="mailto:siddheshkamath40@gmail.com" className="text-sky-600 dark:text-sky-400 hover:underline">siddheshkamath4D@gmail.com</a>.
+                </AccordionContent>
+              </AccordionItem>
 
+              <AccordionItem value="item-3" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  What am I *not* allowed to do?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  You cannot copy, distribute, modify, reverse engineer, or create derivative works from the source code. You also may not sell or lease the software.
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="item-4" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  Why did I get an error?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  Errors can occur for a few reasons. The most common is that the X profile is private, suspended, or does not exist. It can also happen if the server is busy. Please double-check the handle and try again.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/4S shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  Is there a warranty for this software?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  No. The software is provided "AS IS" without warranty of any kind, express or implied. The author is not liable for any claims or damages.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6" className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg rounded-xl px-6">
+                <AccordionTrigger className="text-lg font-semibold text-slate-900 dark:text-slate-100 hover:no-underline text-left">
+                  Who is the author?
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 dark:text-slate-400 pt-2 pb-4">
+                  {/* --- THIS IS THE FIXED LINE --- */}
+                  This project was created by Siddhesh Kamath. You can find him on X as <a href="https://x.com/iamvibecoder" target="_blank" rel="noopener noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline">@iamvibecoder</a> or on GitHub as <a href="https://github.com/iamvibecoding" target="_blank" rel="noopener noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline">@iamvibecoding</a>.
+                </AccordionContent>
+              </AccordionItem>
+
+            </Accordion>
+          </div>
         </section>
 
         <div className="h-24" />
@@ -376,6 +509,19 @@ export default function HomePage() {
         .perspective {
           perspective: 1000px; 
           transform-style: preserve-3d;
+        }
+        /* Styles for Shadcn Accordion */
+        [data-state='open'] > svg {
+          transform: rotate(180deg);
+        }
+        [data-state='closed'] > svg {
+          transform: rotate(0deg);
+        }
+        .dark .dark\\:border-slate-800\\/40 {
+          border-color: rgba(30, 41, 59, 0.4);
+        }
+        .dark .dark\\:bg-slate-900\\/60 {
+           background-color: rgba(15, 23, 42, 0.6);
         }
       `}</style>
     </>
