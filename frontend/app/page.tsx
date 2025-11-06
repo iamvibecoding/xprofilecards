@@ -298,6 +298,7 @@ export default function Page() {
                     <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                       {theme.name}
                     </h3>
+                    {/* Hover animation removed */}
                     <div className="relative bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg rounded-3xl shadow-lg transition-all duration-300 overflow-hidden border border-white/40 dark:border-slate-800/40">
                       <CardItem data={profileData} theme={theme as Theme} />
                     </div>
@@ -330,7 +331,6 @@ export default function Page() {
               </div>
               <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-white/10 select-none opacity-50">1</span>
               <div className="relative z-10">
-                {/* --- FIX IS HERE --- */}
                 {(() => {
                   const Icon = steps[0].icon;
                   return <Icon className="w-10 h-10 text-white/80 mb-4" />;
@@ -344,7 +344,6 @@ export default function Page() {
             <div className="relative lg:col-span-1 p-8 rounded-3xl overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg">
               <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-slate-500/10 dark:text-white/5 select-none opacity-50">2</span>
               <div className="relative z-10">
-                {/* --- FIX IS HERE --- */}
                 {(() => {
                   const Icon = steps[1].icon;
                   return <Icon className="w-10 h-10 text-sky-600 dark:text-sky-400 mb-4" />;
@@ -358,7 +357,6 @@ export default function Page() {
             <div className="relative lg:col-span-1 p-8 rounded-3xl overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800/40 shadow-lg">
               <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-slate-500/10 dark:text-white/5 select-none opacity-50">3</span>
               <div className="relative z-10">
-                {/* --- FIX IS HERE --- */}
                 {(() => {
                   const Icon = steps[2].icon;
                   return <Icon className="w-10 h-10 text-sky-600 dark:text-sky-400 mb-4" />;
@@ -375,7 +373,6 @@ export default function Page() {
               </div>
               <span className="absolute -top-4 -right-2 text-[8rem] font-bold text-white/10 select-none opacity-50">4</span>
               <div className="relative z-10">
-                {/* --- FIX IS HERE --- */}
                 {(() => {
                   const Icon = steps[3].icon;
                   return <Icon className="w-10 h-10 text-white/80 mb-4" />;

@@ -1,17 +1,15 @@
 'use client';
 
 import { useRef } from 'react';
-import { toBlob } from 'html-to-image'; // FIX: Removed @/components/ and relying on package installation
+import { toBlob } from 'html-to-image'; 
 import { Download } from 'lucide-react';
-import { showToast } from '../lib/toast'; // FIX: Changed absolute import to relative import
+import { showToast } from '@/lib/toast';
 
 interface DownloadCardButtonProps {
   targetRef: React.RefObject<HTMLDivElement>;
   filename: string;
 }
 
-// This function ONLY uses the <a> tag method to force a file download, 
-// ensuring maximum compatibility across browsers and devices.
 async function downloadBlob(blob: Blob, filename: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -30,9 +28,8 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!targetRef.current) return;
 
     try {
-      showToast('Generating image...', 'loading', 0); // Use 0 for persistent toast
+      showToast('Generating image...', 'loading', 0); 
 
-      // Use a high pixel ratio for high-quality export
       const pixelRatio = 3;
 
       const blob = await toBlob(targetRef.current, {
@@ -42,6 +39,9 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
         canvasHeight: targetRef.current.offsetHeight * pixelRatio,
         canvasWidth: targetRef.current.offsetWidth * pixelRatio,
         imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGD4DwABAgEAiQm4VwAAAABJRU5ErkJggg==',
+        // **FIX for iOS Cross-Origin Image Capture**
+        fetchRequestInit: { mode: 'cors' }, 
+        crossOrigin: 'anonymous', 
       });
 
       if (!blob) {

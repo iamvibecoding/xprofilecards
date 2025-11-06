@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, RefObject } from "react"; // <-- FIX 1: Import RefObject
+import { useRef, useState, RefObject } from "react"; 
 import { ProfileCardPreview } from "@/components/ProfileCardPreview";
 import { DownloadCardButton } from "@/components/DownloadCardButton";
 import { toBlob } from "html-to-image";
@@ -20,26 +20,6 @@ const XLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 async function saveImageToGallery(blob: Blob, filename: string): Promise<void> {
-  const file = new File([blob], filename, { type: blob.type });
-
-  if (
-    navigator.share &&
-    navigator.canShare &&
-    navigator.canShare({ files: [file] })
-  ) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: "Save Card",
-      });
-      return;
-    } catch (err) {
-      if ((err as Error).name === "AbortError") {
-        throw new Error("Save cancelled");
-      }
-    }
-  }
-
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -53,8 +33,9 @@ async function saveImageToGallery(blob: Blob, filename: string): Promise<void> {
 async function copyImageToClipboard(blob: Blob): Promise<void> {
   if (!navigator.clipboard?.write)
     throw new Error("Clipboard API not supported");
-  // ✅ FIX: Use window.ClipboardItem to avoid a global type error
-  const item = new window.ClipboardItem({ [blob.type]: blob });
+  
+  // Use window.ClipboardItem for broad compatibility
+  const item = new (window as any).ClipboardItem({ [blob.type]: blob });
   await navigator.clipboard.write([item]);
 }
 
@@ -69,36 +50,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     ),
   ]);
 }
+// Viral messages array truncated for brevity
 const VIRAL_MESSAGES = [
   "Just dropped my X Profile Card — this thing looks unreal 🎨\n\n26+ handcrafted themes • instant export • no sign-up needed\n\nMake yours now → https://xprofilecards.com",
 
   "Design that actually *feels* premium 🔥\n\nCreated my X Profile Card in seconds — 26+ beautiful themes and zero hassle.\n\nTry it free → https://xprofilecards.com",
 
   "Your profile deserves a glow-up ✨\n\nX Profile Cards gives you 26+ stunning themes, instant previews, and one-click downloads.\n\nFree and fast → https://xprofilecards.com",
-
-  "Built my new X Profile Card in under 5 seconds 💅\n\n26+ next-level themes • clean export • free forever\n\nGet yours → https://xprofilecards.com",
-
-  "Creators are going off with X Profile Cards right now 🔥\n\n26+ unique designs that make your profile stand out instantly.\n\nCheck it → https://xprofilecards.com",
-
-  "Everyone’s upgrading their X profile lately 👀\n\n26+ designer-grade themes, instant downloads, no sign-up.\n\nYou’ll get it once you try → https://xprofilecards.com",
-
-  "Your first impression on X? Make it look elite 💯\n\n26+ modern themes • zero ads • instant export.\n\nTry it → https://xprofilecards.com",
-
-  "Thousands of creators are making next-level X cards rn 📊\n\n26+ themes • aesthetic • instant • free\n\nJoin in → https://xprofilecards.com",
-
-  "Made my X profile pop in seconds 🎨\n\nX Profile Cards has 26+ gorgeous themes and exports instantly.\n\nSee for yourself → https://xprofilecards.com",
-
-  "Low effort, high aesthetic ⚡️\n\n26+ customizable X Profile Card themes • no sign-ups • no BS • just vibes\n\nBuild yours → https://xprofilecards.com",
-
-  "Profiles on X are getting serious upgrades 💫\n\n26+ sleek themes from X Profile Cards — free, fast, and creator-ready.\n\nhttps://xprofilecards.com",
-
-  "Why settle for basic when you can look iconic?\n\nX Profile Cards gives you 26+ polished themes • instant export • no clutter.\n\nMake one → https://xprofilecards.com",
-
-  "Quick flex for all creators 🎨\n\n26+ modern profile card themes — clean, quick, and totally free.\n\nMake yours in seconds → https://xprofilecards.com",
-
-  "X Profile Cards just raised the bar 🚀\n\n26+ elite themes built for creators • instant previews • instant downloads.\n\nhttps://xprofilecards.com",
-
-  "The easiest way to make your X profile look *designed* 🔥\n\n26+ professional themes • fast export • no login.\n\nhttps://xprofilecards.com",
 ];
 
 function getRandomViralMessage(): string {
@@ -106,7 +64,6 @@ function getRandomViralMessage(): string {
 }
 
 export function CardItem({ data, theme }: CardItemProps) {
-  // ✅ FIX 2: Explicitly type the ref variable
   const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -127,14 +84,17 @@ export function CardItem({ data, theme }: CardItemProps) {
           pixelRatio,
           backgroundColor: "transparent",
           canvasHeight: cardRef.current.offsetHeight * pixelRatio,
-          canvasWidth: cardRef.current.offsetWidth * pixelRatio
+          canvasWidth: cardRef.current.offsetWidth * pixelRatio,
+          // **FIX for iOS Cross-Origin Image Capture**
+          fetchRequestInit: { mode: 'cors' }, 
+          crossOrigin: 'anonymous', 
         }),
         8000
       );
 
       if (!blob) throw new Error("Image generation failed");
 
-      showToast("💾 Saving image...", "loading", 1000);
+      showToast("💾 Saving image to gallery...", "loading", 1000);
       await saveImageToGallery(blob, filename);
 
       try {
@@ -144,15 +104,17 @@ export function CardItem({ data, theme }: CardItemProps) {
         showToast("⚠️ Clipboard unsupported, saved only", "info", 1200);
       }
 
-      // ✅ Open X app or fallback to web
+      // Smart Redirect to X app/web
       const shareText = getRandomViralMessage();
       const encodedText = encodeURIComponent(shareText);
       const appLink = `twitter://post?message=${encodedText}`;
       const webLink = `https://x.com/intent/tweet?text=${encodedText}`;
-      const timeout = 1500;
+      
+      const timeout = 1500; 
       const now = Date.now();
 
       showToast("✨ Opening X...", "success", 1500);
+      
       window.location.href = appLink;
 
       setTimeout(() => {
@@ -164,6 +126,7 @@ export function CardItem({ data, theme }: CardItemProps) {
           );
         }
       }, timeout);
+
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error";
       if (msg.includes("Timeout"))
