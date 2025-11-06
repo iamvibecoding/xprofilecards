@@ -173,6 +173,7 @@ export default function RootLayout({
         
         {/* === START: MANUAL FAVICON/MANIFEST LINKS (Restored as requested) === */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="google-site-verification" content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
