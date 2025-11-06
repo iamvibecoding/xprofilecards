@@ -67,7 +67,7 @@ export const metadata: Metadata = {
       'Transform your X profile into a beautiful, shareable card with premium themes.',
     images: [
       {
-        url: '/og.png',
+        url: '/logo.png',
         width: 1200,
         height: 630,
         alt: 'X Profile Cards - Profile Card Generator',

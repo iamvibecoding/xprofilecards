@@ -170,7 +170,7 @@ export function CardItem({ data, theme }: CardItemProps) {
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error";
       if (msg.includes("Timeout"))
-        showToast("⏱️ Image generation timeout.", "error", 3000);
+        showToast("⏱️ Image generation timeout.", "error", 1000);
       else if (msg.includes("Save cancelled"))
         showToast("Save cancelled", "info", 2000);
       else showToast("❌ Share failed. Try download instead.", "error", 3000);
