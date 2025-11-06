@@ -13,8 +13,9 @@ import {
 } from '@/components/ui/navigation-menu';
 // Import Coffee icon
 import { Github, Menu, X as CloseIcon, Coffee } from 'lucide-react';
-import { ThemeToggle } from '@/components/site/ThemeToggle';
+import { ThemeToggle } from '@/components/site/ThemeToggle'; // ThemeToggle controls the icon
 
+// Utility component for the X/Twitter logo
 const XLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -63,6 +64,7 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {/* Desktop Navigation */}
           <NavigationMenu className="hidden md:flex">
             <NavigationMenuList>
               <NavigationMenuItem>
@@ -82,6 +84,7 @@ export default function Navbar() {
             </NavigationMenuList>
           </NavigationMenu>
 
+          {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="h-9">
               <Link href="https://github.com/iamvibecoding" target="_blank" rel="noreferrer">
@@ -100,7 +103,7 @@ export default function Navbar() {
               </Link>
             </Button>
             
-            {/* --- UPDATED THIS BUTTON (Icon first) --- */}
+            {/* UPDATED: Icon first, consistent yellow background */}
             <Button
               asChild
               size="sm"
@@ -111,13 +114,14 @@ export default function Navbar() {
                 Support
               </Link>
             </Button>
-            {/* --- END OF UPDATED BUTTON --- */}
-
+            
+            {/* ThemeToggle component, where the light mode icon must be fixed */}
             <ThemeToggle />
           </div>
 
           {/* Mobile controls */}
           <div className="md:hidden flex items-center gap-2">
+            {/* ThemeToggle component, where the light mode icon must be fixed */}
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -134,7 +138,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        // --- FIX: Changed z-40 to z-50 ---
+        // FIX: Changed z-40 to z-50 for correct layering
         <div className="fixed inset-0 top-16 z-50 md:hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div
             className="absolute inset-0 bg-black/20 backdrop-blur-sm"
@@ -143,7 +147,7 @@ export default function Navbar() {
 
           <div className="relative bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800 shadow-xl">
             <nav className="container mx-auto px-4 py-6 flex flex-col gap-2">
-              {/* --- FIX: Converted links to buttons for consistency --- */}
+              {/* FIX: Converted links to buttons for consistency */}
               <Button
                 asChild
                 variant="ghost"
@@ -198,7 +202,7 @@ export default function Navbar() {
                   </Link>
                 </Button>
 
-                {/* --- FIX: Changed bg-yellow-300 to 400 for consistency --- */}
+                {/* FIX: Changed bg-yellow-300 to 400 for consistency */}
                 <Button
                   asChild
                   className="w-full justify-start bg-yellow-400 hover:bg-yellow-500 text-black text-base py-6"
@@ -213,8 +217,6 @@ export default function Navbar() {
                     Support on Buy Me a Coffee
                   </Link>
                 </Button>
-                {/* --- END OF FIX --- */}
-
               </div>
             </nav>
           </div>

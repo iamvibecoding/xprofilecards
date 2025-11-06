@@ -3,7 +3,8 @@
 import { useRef, useState, RefObject } from "react"; 
 import { ProfileCardPreview } from "@/components/ProfileCardPreview";
 import { DownloadCardButton } from "@/components/DownloadCardButton";
-import { toBlob } from "html-to-image";
+// Updated to import toJpeg for JPEG export
+import { toJpeg } from "html-to-image"; 
 import { showToast } from "@/lib/toast";
 import type { Theme } from "@/lib/themes";
 import type { ProfileData } from "@/app/page";
@@ -19,7 +20,44 @@ const XLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-async function saveImageToGallery(blob: Blob, filename: string): Promise<void> {
+// Helper to convert base64 data URL to Blob for saving/sharing
+function dataURLtoBlob(dataurl: string): Blob {
+    const arr = dataurl.split(',');
+    // @ts-ignore
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+async function saveImageToGallery(dataUrl: string, filename: string): Promise<void> {
+  const blob = dataURLtoBlob(dataUrl);
+  const file = new File([blob], filename, { type: blob.type });
+
+  // **FIX: Re-enable iOS native sharing to access "Save to Photos"**
+  if (
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({ files: [file], title: "Save Card" });
+      return; // Stop here if native share succeeded
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+         // If native share failed for another reason (e.g., policy), fall through to download link
+      } else {
+         // If user cancelled, stop processing
+         throw new Error("Save cancelled");
+      }
+    }
+  }
+
+  // Standard download fallback
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -30,7 +68,8 @@ async function saveImageToGallery(blob: Blob, filename: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-async function copyImageToClipboard(blob: Blob): Promise<void> {
+async function copyImageToClipboard(dataUrl: string): Promise<void> {
+  const blob = dataURLtoBlob(dataUrl);
   if (!navigator.clipboard?.write)
     throw new Error("Clipboard API not supported");
   
@@ -68,7 +107,8 @@ export function CardItem({ data, theme }: CardItemProps) {
   const [sharing, setSharing] = useState(false);
 
   const cleanHandle = data.handle?.replace(/[@\s]/g, "") || "card";
-  const filename = `${Date.now()}-${cleanHandle}-${theme.id}.png`;
+  // Updated filename extension to .jpeg
+  const filename = `${Date.now()}-${cleanHandle}-${theme.id}.jpeg`;
 
   const handleShare = async () => {
     if (!cardRef.current) return;
@@ -78,13 +118,13 @@ export function CardItem({ data, theme }: CardItemProps) {
     try {
       const pixelRatio = 3;
 
-      const blob = await withTimeout(
-        toBlob(cardRef.current, {
+      // Using toJpeg for JPEG export
+      const dataUrl = await withTimeout(
+        toJpeg(cardRef.current, {
           cacheBust: true,
           pixelRatio,
-          backgroundColor: "transparent",
-          canvasHeight: cardRef.current.offsetHeight * pixelRatio,
-          canvasWidth: cardRef.current.offsetWidth * pixelRatio,
+          backgroundColor: "#ffffff", // Use solid color for JPEG conversion
+          quality: 0.95, // High quality
           // **FIX for iOS Cross-Origin Image Capture**
           fetchRequestInit: { mode: 'cors' }, 
           crossOrigin: 'anonymous', 
@@ -92,13 +132,13 @@ export function CardItem({ data, theme }: CardItemProps) {
         8000
       );
 
-      if (!blob) throw new Error("Image generation failed");
+      if (!dataUrl) throw new Error("Image generation failed");
 
       showToast("💾 Saving image to gallery...", "loading", 1000);
-      await saveImageToGallery(blob, filename);
+      await saveImageToGallery(dataUrl, filename); // Save using Data URL
 
       try {
-        await copyImageToClipboard(blob);
+        await copyImageToClipboard(dataUrl);
         showToast("📋 Copied to clipboard!", "success", 1200);
       } catch {
         showToast("⚠️ Clipboard unsupported, saved only", "info", 1200);

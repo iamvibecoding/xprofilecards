@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef } from 'react';
-import { toBlob } from 'html-to-image'; 
+// Using html-to-image/toJpeg instead of toBlob for JPEG export
+import { toJpeg } from 'html-to-image'; 
 import { Download } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 
@@ -10,15 +11,28 @@ interface DownloadCardButtonProps {
   filename: string;
 }
 
-async function downloadBlob(blob: Blob, filename: string): Promise<void> {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+// Helper to convert base64 data URL to Blob (since toJpeg returns a Data URL)
+function dataURLtoBlob(dataurl: string): Blob {
+    const arr = dataurl.split(',');
+    // @ts-ignore
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+async function downloadDataUrl(dataUrl: string, filename: string): Promise<void> {
+  // We use the dataUrl directly for download since it's cleaner than converting to Blob then URL.
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonProps) {
@@ -28,27 +42,26 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!targetRef.current) return;
 
     try {
-      showToast('Generating image...', 'loading', 0); 
+      showToast('Generating image...', 'loading', 2000); 
 
       const pixelRatio = 3;
 
-      const blob = await toBlob(targetRef.current, {
+      // Using toJpeg for JPEG export
+      const dataUrl = await toJpeg(targetRef.current, {
         cacheBust: true,
         pixelRatio, 
-        backgroundColor: 'transparent',
-        canvasHeight: targetRef.current.offsetHeight * pixelRatio,
-        canvasWidth: targetRef.current.offsetWidth * pixelRatio,
-        imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGD4DwABAgEAiQm4VwAAAABJRU5ErkJggg==',
+        backgroundColor: '#ffffff', // Use solid color for JPEG conversion
+        quality: 0.95, // High quality
         // **FIX for iOS Cross-Origin Image Capture**
         fetchRequestInit: { mode: 'cors' }, 
         crossOrigin: 'anonymous', 
       });
 
-      if (!blob) {
+      if (!dataUrl) {
         throw new Error('Failed to generate image');
       }
 
-      await downloadBlob(blob, filename);
+      await downloadDataUrl(dataUrl, filename);
 
       showToast('✨ Downloaded successfully!', 'success', 2000);
     } catch (error) {
@@ -62,7 +75,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     ref={downloadRef}
     onClick={handleDownload}
     className="flex-1 m-1 mr-0 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all"
-    title="Download card as PNG"
+    title="Download card as JPEG"
   >
     <Download className="w-4 h-4" />
     Download
