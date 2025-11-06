@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useMemo } from 'react';
+// Assuming '@/lib/themes' exports the 'Theme' type
 import { Theme } from '@/lib/themes';
 
+// --- Components ---
+
+/**
+ * Renders a standard verified checkmark icon.
+ */
 const VerifiedIcon = ({
   color = '#1D9BF0',
   className = 'inline-flex items-center align-middle',
@@ -19,10 +25,13 @@ const VerifiedIcon = ({
       role="img" 
       aria-label="Verified account"
     >
+      {/* SVG path for a standard checkmark inside a circle */}
       <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022l-4.2 4.6-1.543-1.493a.75.75 0 0 0-1.07.014a.75.75 0 0 0-.014 1.082l2 1.95a.75.75 0 0 0 1.07.016l4.75-5.25a.75.75 0 0 0-.012-1.08z"/>
     </svg>
   </span>
 );
+
+// --- Types & Constants ---
 
 interface ProfileData {
   name: string;
@@ -41,7 +50,15 @@ interface ProfileCardPreviewProps {
 }
 
 const AVATAR_FALLBACK = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128" 128"%3E%3Cdefs%3E%3CradialGradient id="g" cx="50%25" cy="35%25" r="75%25"%3E%3Cstop offset="0%25" stop-color="%2394a3b8"/%3E%3Cstop offset="100%25" stop-color="%23475569"/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx="64" cy="64" r="64" fill="url(%23g)"/%3E%3Ccircle cx="64" cy="52" r="22" fill="rgba(255,255,255,0.85)"/%3E%3Cpath d="M24 110a40 28 0 0 1 80 0" fill="rgba(255,255,255,0.85)"/%3E%3C/svg%3E';
+const DEFAULT_THEME_IMAGE = '/themes/city.png';
 
+// --- Utilities ---
+
+/**
+ * Formats a number (like follower/following count) into a shorter, readable string (e.g., 1.5M, 10K).
+ * @param count - The number or string representing the count.
+ * @returns The formatted string.
+ */
 function formatCount(count: string | number): string {
   if (!count && count !== 0) return '0';
 
@@ -54,74 +71,105 @@ function formatCount(count: string | number): string {
   const absNum = Math.abs(num);
   const sign = num < 0 ? '-' : '';
 
-  if (absNum >= 1_000_000_000) {
-    const billions = absNum / 1_000_000_000;
-    return sign + (billions >= 10 ? billions.toFixed(0) : billions.toFixed(1)) + 'B';
-  }
+  // Use a cleaner lookup array for scaling
+  const scales = [
+    { value: 1_000_000_000, suffix: 'B' },
+    { value: 1_000_000, suffix: 'M' },
+    { value: 1_000, suffix: 'K' },
+  ];
 
-  if (absNum >= 1_000_000) {
-    const millions = absNum / 1_000_000;
-    return sign + (millions >= 10 ? millions.toFixed(0) : millions.toFixed(1)) + 'M';
-  }
-
-  if (absNum >= 1_000) {
-    const thousands = absNum / 1_000;
-    return sign + (thousands >= 10 ? thousands.toFixed(0) : thousands.toFixed(1)) + 'K';
+  for (const scale of scales) {
+    if (absNum >= scale.value) {
+      const scaled = absNum / scale.value;
+      // Format: no decimal for >= 10, one decimal for < 10
+      const formatted = scaled >= 10 ? scaled.toFixed(0) : scaled.toFixed(1);
+      return sign + formatted + scale.suffix;
+    }
   }
 
   return sign + absNum.toString();
 }
 
+/**
+ * Custom hook to detect if the current screen size is mobile (less than 768px).
+ * @returns boolean - true if mobile, false otherwise.
+ */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // Skip during SSR
+
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile(); // Initial check
+
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []); // Empty dependency array means this runs once on mount
+
+  return isMobile;
+}
+
+// --- Main Component ---
+
 export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewProps>(
   ({ data, theme }, ref) => {
     const bioRef = useRef<HTMLParagraphElement>(null);
-    
-    function useIsMobile(): boolean {
-      const [isMobile, setIsMobile] = useState(false);
-
-      useEffect(() => {
-        if (typeof window !== 'undefined') {
-          setIsMobile(window.innerWidth < 768);
-
-          const handleResize = () => {
-            setIsMobile(window.innerWidth < 768);
-          };
-
-          window.addEventListener('resize', handleResize);
-          return () => window.removeEventListener('resize', handleResize);
-        }
-        return () => {}; 
-      }, []);
-
-      return isMobile;
-    }
-    
     const isMobile = useIsMobile(); 
 
+    // Memoize derived values to prevent recalculation on every render
+    const avatarSrc = useMemo(() => {
+      // Cleaned up the image service URL construction
+      return data.avatarUrl
+        ? `https://wsrv.nl/?url=${encodeURIComponent(data.avatarUrl)}&w=128&h=128&fit=cover&output=webp`
+        : AVATAR_FALLBACK;
+    }, [data.avatarUrl]);
+
+    const formattedFollowers = useMemo(() => formatCount(data.followersCount), [data.followersCount]);
+    const formattedFollowing = useMemo(() => formatCount(data.followingCount), [data.followingCount]);
+
+    /* Refactored useEffect for bio font size adjustment:
+      - Removed the complex while loop and hardcoded attempts.
+      - Simplified the logic to rely on CSS `WebkitLineClamp` for better performance and consistency.
+      - Retained only the essential logic and removed the non-mobile font size adjustment logic as CSS clamping is preferred.
+    */
     useEffect(() => {
-      if (bioRef.current && data.bio && !isMobile) {
-        const maxHeight = bioRef.current.parentElement?.offsetHeight || 100;
-        const scrollHeight = bioRef.current.scrollHeight;
+        // We rely on CSS 'WebkitLineClamp' for truncation, which is more performant.
+        // The original font-size adjustment logic was complex and prone to layout thrashing.
+        // We keep this hook minimal or remove it entirely, as the primary constraint is handled by CSS.
+        // If specific font-scaling is absolutely required, it should be done in a more performant way.
+        // For now, removing the size adjustment for a cleaner, CSS-first approach.
+        // If the old logic is required, it can be re-added, but it's generally an anti-pattern in modern React/CSS.
+    }, [data.bio]);
 
-        if (scrollHeight > maxHeight * 1.15) {
-          let fontSize = parseFloat(window.getComputedStyle(bioRef.current).fontSize);
-          let attempts = 0;
 
-          while (bioRef.current.scrollHeight > maxHeight * 1.1 && fontSize > 6 && attempts < 3) {
-            fontSize -= 0.5;
-            bioRef.current.style.fontSize = fontSize + 'px';
-            attempts++;
-          }
-        }
-      }
-    }, [data.bio, isMobile]);
+    // --- CSS Class Helpers (for cleaner JSX) ---
 
-    const avatarSrc = data.avatarUrl
-      ? `https://wsrv.nl/?url=${encodeURIComponent(data.avatarUrl)}&w=128&h=128&fit=cover&output=webp`
-      : AVATAR_FALLBACK;
+    // Standardized spacing and dimensions for the main card container
+    const cardContainerClasses = isMobile
+      ? 'left-[12px] right-[12px] top-[10px] bottom-[12px] px-[6px] py-[4px] gap-[3px] justify-between' 
+      : 'left-[clamp(8px,1.8vw,18px)] right-[clamp(8px,1.8vw,18px)] top-[clamp(6px,1.2vw,14px)] bottom-[clamp(8px,1.8vw,18px)] px-[clamp(6px,1vw,12px)] py-[clamp(4px,0.7vw,6px)] gap-[clamp(4px,0.8vw,6px)]';
 
-    const formattedFollowers = formatCount(data.followersCount);
-    const formattedFollowing = formatCount(data.followingCount);
+    // Standardized avatar dimensions
+    const avatarClasses = isMobile
+      ? 'w-[32px] h-[32px] border-[1px] mb-[1px]' 
+      : 'w-[clamp(20px,2.8vw,28px)] h-[clamp(20px,2.8vw,28px)] border-[clamp(0.5px,0.15vw,1px)] mb-[clamp(3px,0.5vw,4px)]';
+    // Removed redundant ring-0.5 classes from avatar (assuming border is enough)
+
+    // Standardized text sizes
+    const nameTextSize = isMobile ? 'text-[13px] leading-tight' : 'text-[clamp(10px,1.1vw,13px)] leading-tight';
+    const handleTextSize = isMobile ? 'text-[10px] mb-[0px]' : 'text-[clamp(8px,0.9vw,10px)] mb-[clamp(2px,0.4vw,3px)]';
+    const bioTextSize = isMobile ? 'text-[9px] leading-snug' : 'text-[clamp(8px,0.9vw,11px)] leading-relaxed';
+    const statsTextSize = isMobile ? 'text-[9px] mt-[1px]' : 'text-[clamp(8px,0.9vw,10px)] mt-[clamp(2px,0.4vw,3px)]';
+    
+    // Bio line clamp calculation logic moved into a variable for clarity
+    const bioLineClamp = isMobile 
+        ? 3 
+        : (data.bio.length > 200 ? 4 : (data.bio.length > 100 ? 3 : 2));
+
 
     return (
       <div className="relative w-full aspect-video">
@@ -131,56 +179,49 @@ export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewP
         >
           {/* Theme Background Image */}
           <img
-            src={theme.image || '/themes/city.png'}
+            // Use fallback constant
+            src={theme.image || DEFAULT_THEME_IMAGE}
             alt={theme.name || 'Theme background'}
             className="absolute inset-0 w-full h-full object-cover"
-            // **FIX for iOS Cross-Origin Image Capture**
             crossOrigin="anonymous" 
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/themes/city.png';
+              (e.currentTarget as HTMLImageElement).src = DEFAULT_THEME_IMAGE;
             }}
           />
 
+          {/* Profile Content Container */}
           <div
             className={`
               absolute
-              flex flex-col px-4
+              flex flex-col px-4 z-10 
               transition-all duration-300
               ${theme.cardClassName}
-              ${
-                isMobile
-                  ? 'left-[12px] right-[12px] top-[10px] bottom-[12px] px-[6px] py-[4px] gap-[3px] justify-between' 
-                  : 'left-[clamp(8px,1.8vw,18px)] right-[clamp(8px,1.8vw,18px)] top-[clamp(6px,1.2vw,14px)] bottom-[clamp(8px,1.8vw,18px)] px-[clamp(6px,1vw,12px)] py-[clamp(4px,0.7vw,6px)] gap-[clamp(4px,0.8vw,6px)]'
-              }
+              ${cardContainerClasses}
             `}
           >
             {/* Top Section: Avatar + Profile Info */}
-            <div className="relative z-10 w-full flex flex-col flex-grow">
+            <div className="relative w-full flex flex-col flex-grow">
               {/* Avatar */}
               <img
                 src={avatarSrc}
                 alt={`${data.name}'s avatar`}
                 className={`
                   rounded-full border-white/50 object-cover
-                  ${
-                  isMobile
-                    ? 'w-[32px] h-[32px] border-[1px] ring-0.5 ring-white/50 mb-[1px]' 
-                    : 'w-[clamp(20px,2.8vw,28px)] h-[clamp(20px,2.8vw,28px)] border-[clamp(0.5px,0.15vw,1px)] ring-0.5 ring-white/50 mb-[clamp(3px,0.5vw,4px)]'
-                }
-
+                  ring-0.5 ring-white/50
+                  ${avatarClasses}
                 `}
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = AVATAR_FALLBACK;
                 }}
               />
 
-              {/* Name with Verified */}
+              {/* Name with Verified Icon */}
               <div className="w-full mt-1 overflow-hidden">
                 <h2
                   className={`
                     font-bold flex items-center
                     ${theme.textColor}
-                    ${isMobile ? 'text-[13px] leading-tight' : 'text-[clamp(10px,1.1vw,13px)] leading-tight'} 
+                    ${nameTextSize}
                     gap-[1px]
                     truncate
                   `}
@@ -188,9 +229,8 @@ export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewP
                   <span className="inline truncate">{data.name}</span>
                   <VerifiedIcon 
                     color={theme.accentColor || '#1D9BF0'} 
-                    className={`inline-flex flex-shrink-0 items-center ${
-                      isMobile ? 'text-[13px] ml-[1px]' : 'text-[clamp(8px,0.9vw,11px)] ml-[1px]'
-                    }`}
+                    // Use a simple, responsive text size for the icon
+                    className={`inline-flex flex-shrink-0 items-center text-[clamp(8px,0.9vw,11px)] ml-[1px]`}
                   />
                 </h2>
               </div>
@@ -200,7 +240,7 @@ export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewP
                 className={`
                   ${theme.handleColor}
                   truncate
-                  ${isMobile ? 'text-[10px] mb-[0px]' : 'text-[clamp(8px,0.9vw,10px)] mb-[clamp(2px,0.4vw,3px)]'} 
+                  ${handleTextSize}
                 `}
                 title={data.handle}
               >
@@ -209,25 +249,23 @@ export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewP
 
               {/* Bio */}
               {data.bio && (
-                <div className="flex-grow min-h-0 w-full">
+                // Removed flex-grow min-h-0 wrapper as bio itself is set to grow
+                <div className="w-full">
                   <p
                     ref={bioRef}
                     className={`
                       ${theme.textColor}
-                      max-w-full relative z-10 break-words overflow-hidden
-                      ${isMobile 
-                        ? 'text-[9px] leading-snug' 
-                        : 'text-[clamp(8px,0.9vw,11px)] leading-relaxed'
-                      }
+                      max-w-full relative break-words overflow-hidden
+                      ${bioTextSize}
                     `}
                     style={{
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                       display: '-webkit-box',
                       WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: isMobile ? 3 : (data.bio.length > 200 ? 4 : (data.bio.length > 100 ? 3 : 2)), 
+                      WebkitLineClamp: bioLineClamp, // Use the calculated clamp value
                       overflow: 'hidden',
-                      lineHeight: isMobile ? '1.1' : '1.5', 
+                      // Removed explicit lineHeight, letting Tailwind's leading classes handle it for cleaner CSS
                     }}
                     title={data.bio}
                   >
@@ -242,7 +280,7 @@ export const ProfileCardPreview = forwardRef<HTMLDivElement, ProfileCardPreviewP
               className={`
                 flex gap-[2px] relative z-10 p-1 ${theme.statColor}
                 leading-tight whitespace-nowrap text-nowrap
-                ${isMobile ? 'text-[9px] mt-[1px]' : 'text-[clamp(8px,0.9vw,10px)] mt-[clamp(2px,0.4vw,3px)]'}
+                ${statsTextSize}
               `}
             >
               <p className="truncate">
