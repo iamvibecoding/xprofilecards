@@ -1,18 +1,18 @@
 'use client';
 
 import { useRef } from 'react';
-import { toBlob } from 'html-to-image';
+import { toBlob } from 'html-to-image'; // FIX: Removed @/components/ and relying on package installation
 import { Download } from 'lucide-react';
-import { showToast } from '@/lib/toast';
+import { showToast } from '../lib/toast'; // FIX: Changed absolute import to relative import
 
 interface DownloadCardButtonProps {
   targetRef: React.RefObject<HTMLDivElement>;
   filename: string;
 }
 
-// 💥 FIX: This function now ONLY uses the <a> tag method to force a file download.
+// This function ONLY uses the <a> tag method to force a file download, 
+// ensuring maximum compatibility across browsers and devices.
 async function downloadBlob(blob: Blob, filename: string): Promise<void> {
-  // Fallback for desktop browsers (and now all devices for this button)
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -32,10 +32,15 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     try {
       showToast('Generating image...', 'loading', 0); // Use 0 for persistent toast
 
+      // Use a high pixel ratio for high-quality export
+      const pixelRatio = 3;
+
       const blob = await toBlob(targetRef.current, {
         cacheBust: true,
-        pixelRatio: 3, 
+        pixelRatio, 
         backgroundColor: 'transparent',
+        canvasHeight: targetRef.current.offsetHeight * pixelRatio,
+        canvasWidth: targetRef.current.offsetWidth * pixelRatio,
         imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGD4DwABAgEAiQm4VwAAAABJRU5ErkJggg==',
       });
 

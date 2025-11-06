@@ -298,7 +298,7 @@ export default function Page() {
                     <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                       {theme.name}
                     </h3>
-                    <div className="relative bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg rounded-3xl shadow-lg transition-all duration-300 group-hover:shadow-2xl  overflow-hidden border border-white/40 dark:border-slate-800/40">
+                    <div className="relative bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg rounded-3xl shadow-lg transition-all duration-300 overflow-hidden border border-white/40 dark:border-slate-800/40">
                       <CardItem data={profileData} theme={theme as Theme} />
                     </div>
                   </div>
