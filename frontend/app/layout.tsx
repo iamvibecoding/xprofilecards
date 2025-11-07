@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import Script from 'next/script'; // --- 1. IMPORT THE SCRIPT COMPONENT ---
+import Script from 'next/script';
 
 import Navbar from '@/components/site/Navbar';
 import Footer from '@/components/site/Footer';
 import { ToastContainer } from '@/components/Toast';
-import { ThemeProvider } from '@/components/ThemeProvider'; // Import the provider
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -29,8 +29,6 @@ export const metadata: Metadata = {
   },
   description:
     'Transform any X (Twitter) profile into a beautiful, shareable card with our 100% free X profile card generator. Choose from 26+ premium themes and download high-quality PNGs instantly.',
-  
-  // Curated keywords from your list for SEO
   keywords: [
     'x profile cards',
     'create twitter cards',
@@ -49,15 +47,10 @@ export const metadata: Metadata = {
     'iamvibecoder',
     'siddhesh kamath',
   ],
-  
-  // Removed manifest and icons from here, as you are adding them manually in <head>
-  
   themeColor: '#ffffff',
-  
   alternates: {
     canonical: 'https://xprofilecards.com',
   },
-
   openGraph: {
     type: 'website',
     url: 'https://xprofilecards.com',
@@ -99,32 +92,58 @@ export const metadata: Metadata = {
   ],
 };
 
-// --- JSON-LD SCHEMA FOR "Generative Engine Optimization (GEO)" & SEO ---
+// --- JSON-LD SCHEMA: FULL SEO OPTIMIZED ---
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://xprofilecards.com/#organization',
+      'name': 'X Profile Cards',
+      'url': 'https://xprofilecards.com',
+      'logo': {
+        '@type': 'ImageObject',
+        'url': 'https://xprofilecards.com/logo.png',
+        'width': 512,
+        'height': 512,
+      },
+      'sameAs': [
+        'https://x.com/iamvibecoder',
+        'https://github.com/iamvibecoding',
+      ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://xprofilecards.com/#website',
+      'url': 'https://xprofilecards.com',
+      'name': 'X Profile Cards',
+      'publisher': { '@id': 'https://xprofilecards.com/#organization' },
+      'potentialAction': {
+        '@type': 'SearchAction',
+        'target': 'https://xprofilecards.com/?q={search_term_string}',
+        'query-input': 'required name=search_term_string',
+      },
+    },
     {
       '@type': 'SoftwareApplication',
       'name': 'X Profile Cards',
       'operatingSystem': 'Web',
       'applicationCategory': 'WebApplication',
-      'description': 'A 100% free tool to transform any X (Twitter) profile into beautiful, shareable cards. Choose from 26+ premium themes and download high-quality PNGs instantly.',
-      'keywords': 'x profile cards, create twitter cards, profile cards for x, twitter card generator, free twitter profile card',
+      'description':
+        'A 100% free tool to transform any X (Twitter) profile into beautiful, shareable cards. Choose from 26+ premium themes and download high-quality PNGs instantly.',
+      'keywords':
+        'x profile cards, create twitter cards, profile cards for x, twitter card generator, free twitter profile card',
       'url': 'https://xprofilecards.com',
       'author': {
         '@type': 'Person',
         'name': 'Siddhesh Kamath',
-        'url': 'https://x.com/iamvibecoder'
+        'url': 'https://x.com/iamvibecoder',
       },
-      'offers': {
-        '@type': 'Offer',
-        'price': '0',
-        'priceCurrency': 'USD'
-      },
+      'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'USD' },
       'mainEntityOfPage': {
         '@type': 'WebPage',
-        '@id': 'https://xprofilecards.com'
-      }
+        '@id': 'https://xprofilecards.com',
+      },
     },
     {
       '@type': 'FAQPage',
@@ -134,56 +153,88 @@ const jsonLd = {
           'name': 'Is X Profile Cards free to use?',
           'acceptedAnswer': {
             '@type': 'Answer',
-            'text': 'Yes, X Profile Cards is a 100% free tool for personal, non-commercial use. You can create and share cards on social media.'
-          }
+            'text':
+              'Yes, X Profile Cards is a 100% free tool for personal, non-commercial use. You can create and share cards on social media.',
+          },
         },
         {
           '@type': 'Question',
           'name': 'Why did I get an error when generating a card?',
           'acceptedAnswer': {
             '@type': 'Answer',
-            'text': 'Errors can occur if the X (Twitter) profile is private, suspended, or does not exist. It can also happen if the server is busy. Please double-check the handle and try again.'
-          }
+            'text':
+              'Errors can occur if the X (Twitter) profile is private, suspended, or does not exist. It can also happen if the server is busy. Please double-check the handle and try again.',
+          },
         },
         {
           '@type': 'Question',
           'name': 'Who is the author of X Profile Cards?',
           'acceptedAnswer': {
             '@type': 'Answer',
-            'text': 'This project was created by Siddhesh Kamath. You can find him on X as @iamvibecoder or on GitHub as @iamvibecoding.'
-          }
-        }
-      ]
-    }
-  ]
+            'text':
+              'This project was created by Siddhesh Kamath. You can find him on X as @iamvibecoder or on GitHub as @iamvibecoding.',
+          },
+        },
+      ],
+    },
+  ],
 };
-
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} scroll-smooth`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} scroll-smooth`}
+      suppressHydrationWarning
+    >
       <head>
-        {/* --- ADDED: JSON-LD SCRIPT (Generative Engine Optimization) --- */}
+        {/* --- SEO & STRUCTURED DATA --- */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        
-        {/* === START: MANUAL FAVICON/MANIFEST LINKS (Restored as requested) === */}
+
+        {/* --- VIEWPORT & VERIFICATION --- */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="google-site-verification" content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <meta
+          name="google-site-verification"
+          content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo"
+        />
+
+        {/* --- PRIMARY LOGO FAVICON --- */}
+        <link rel="icon" href="/logo.png" type="image/png" />
+
+        {/* --- ADDITIONAL ICONS & MANIFEST --- */}
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/web-app-manifest-192x192.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/web-app-manifest-512x512.png" />
-        <link rel="icon" type="image/png" sizes="96x96" href="/web-app-manifest-512x512.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
-        {/* === END: MANUAL FAVICON/MANIFEST LINKS === */}
-        
-        {/* --- 2. ADDED GOOGLE ANALYTICS SCRIPT HERE --- */}
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="16x16"
+          href="/web-app-manifest-192x192.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href="/web-app-manifest-512x512.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="96x96"
+          href="/web-app-manifest-512x512.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="192x192"
+          href="/web-app-manifest-192x192.png"
+        />
+
+        {/* --- GOOGLE ANALYTICS --- */}
         <Script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-CYNXJK14L1"
@@ -198,9 +249,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      
-      {/* --- 3. REMOVED INVALID SCRIPT FROM HERE --- */}
-      
+
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider
           attribute="class"
