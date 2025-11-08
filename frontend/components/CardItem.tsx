@@ -56,7 +56,7 @@ export function CardItem({ data, theme }: CardItemProps) {
     setSharing(true);
 
     try {
-      showToast('Rendering ultra-HD…', 'loading', 1000);
+      showToast('Rendering ...', 'loading', 1000);
       await waitForFonts();
 
       const rect = node.getBoundingClientRect();

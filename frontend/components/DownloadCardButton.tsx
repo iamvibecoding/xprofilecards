@@ -24,7 +24,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering ultra-HD image…', 'loading', 1000);
+      showToast('Rendering image ...', 'loading', 1000);
       await waitForFonts();
 
       const rect = node.getBoundingClientRect();
@@ -38,7 +38,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
 
       if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded in ultra-HD quality', 'success', 2000);
+      showToast('✅ Downloaded', 'success', 2000);
     } catch (err) {
       console.error(err);
       showToast('❌ Export failed', 'error', 2200);
