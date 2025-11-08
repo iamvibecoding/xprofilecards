@@ -9,6 +9,10 @@ import {
   makeFilename,
   saveBlob,
   waitForFonts,
+  getSafeScale,
+  applyIOSFontFix,
+  removeIOSFontFix,
+  isIOS,
 } from '@/lib/capture';
 
 interface DownloadCardButtonProps {
@@ -24,11 +28,13 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering image ...', 'loading', 1000);
+      showToast('Rendering image...', 'loading', 800);
       await waitForFonts();
 
+      if (isIOS()) applyIOSFontFix();
+
       const rect = node.getBoundingClientRect();
-      const scale = 8; // ← max quality
+      const scale = 8;
       const blob = await domToBlob(node, {
         ...buildOptions('image/png', scale),
         width: rect.width * scale,
@@ -36,11 +42,14 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
         style: { transform: 'none', zoom: scale },
       });
 
+      if (isIOS()) removeIOSFontFix();
+
       if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
       showToast('✅ Downloaded', 'success', 2000);
     } catch (err) {
       console.error(err);
+      removeIOSFontFix();
       showToast('❌ Export failed', 'error', 2200);
     }
   };

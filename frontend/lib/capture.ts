@@ -1,10 +1,10 @@
 export type ExportType = 'image/png' | 'image/jpeg';
 
+// --- Core helpers ---
 export function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-// Ensure web fonts are ready before capture
 export async function waitForFonts() {
   try {
     const fonts = (document as any).fonts;
@@ -13,46 +13,58 @@ export async function waitForFonts() {
   } catch {}
 }
 
-// Sanitize filename
 export function makeFilename(base: string, ext = 'png') {
   const safe = (base || 'card').replace(/[^\w.-]+/g, '-').toLowerCase();
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-// --- NEW: iOS Safari font scaling fix ---
-export function prepareSafariCapture(node: HTMLElement) {
-  node.setAttribute('data-ios-capture', 'true');
-  const style = document.createElement('style');
-  style.id = 'ios-font-fix';
-  style.textContent = `
-    [data-ios-capture="true"],
-    [data-ios-capture="true"] * {
-      -webkit-text-size-adjust: none !important;
-      transform: scale(1) !important;
-      transform-origin: top left !important;
-      zoom: 1 !important;
+// --- Safari detection ---
+export function isIOS() {
+  return (
+    typeof navigator !== 'undefined' &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+    !window.MSStream
+  );
+}
+
+// --- Dynamic iOS text shrink fix ---
+let iosFontFixStyle: HTMLStyleElement | null = null;
+
+export function applyIOSFontFix() {
+  if (!isIOS()) return;
+  if (iosFontFixStyle) return; // already added
+
+  iosFontFixStyle = document.createElement('style');
+  iosFontFixStyle.id = 'ios-font-fix';
+  iosFontFixStyle.textContent = `
+    html, body, * {
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
       font-size: inherit !important;
       line-height: normal !important;
       letter-spacing: normal !important;
       text-rendering: geometricPrecision !important;
       -webkit-font-smoothing: antialiased !important;
+      zoom: 1 !important;
+      transform: scale(1) !important;
     }
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(iosFontFixStyle);
 }
 
-export function cleanupSafariCapture(node: HTMLElement) {
-  node.removeAttribute('data-ios-capture');
-  const style = document.getElementById('ios-font-fix');
-  if (style) style.remove();
+export function removeIOSFontFix() {
+  if (iosFontFixStyle) {
+    iosFontFixStyle.remove();
+    iosFontFixStyle = null;
+  }
 }
 
-// --- scaling logic ---
+// --- Scale + export options ---
 export function getSafeScale() {
   const dpr = window.devicePixelRatio || 1;
   const base = 4;
-  const corrected = base / Math.min(dpr, 2); // Prevent Safari overscaling
-  return clamp(corrected, 2, 5);
+  const corrected = base / Math.min(dpr, 2);
+  return clamp(corrected, 2, 6);
 }
 
 export function buildOptions(type: ExportType, pixelRatio = 4) {
@@ -67,7 +79,7 @@ export function buildOptions(type: ExportType, pixelRatio = 4) {
     style: {
       transform: 'scale(1)',
       zoom: 1,
-      fontSize: 'calc(1rem * 1.0)',
+      fontSize: 'inherit',
       lineHeight: 'normal',
       letterSpacing: 'normal',
       textRendering: 'geometricPrecision',
@@ -78,11 +90,8 @@ export function buildOptions(type: ExportType, pixelRatio = 4) {
   };
 }
 
-export async function saveBlob(
-  blob: Blob,
-  filename: string,
-  opts?: { useShare?: boolean }
-) {
+// --- File saving helpers ---
+export async function saveBlob(blob: Blob, filename: string, opts?: { useShare?: boolean }) {
   const { useShare = false } = opts || {};
   const file = new File([blob], filename, { type: blob.type });
 
