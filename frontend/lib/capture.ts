@@ -12,7 +12,8 @@ export async function waitForFonts() {
     // @ts-ignore
     if (document.fonts?.ready) await document.fonts.ready;
   } catch {}
-  await new Promise((r) => setTimeout(r, 100));
+  // small settle so Safari finishes glyph raster
+  await new Promise((r) => setTimeout(r, 80));
 }
 
 export function makeFilename(base: string, ext = 'png') {
@@ -20,8 +21,11 @@ export function makeFilename(base: string, ext = 'png') {
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-export const getSafeScale = () =>
-  clamp((window.devicePixelRatio || 2) * 2, 2, 6);
+// iOS can lie about DPR; 4–6× is the sweet spot without hitting mem caps.
+export function getSafeScale() {
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 2;
+  return clamp(Math.round(dpr * 2), 3, 6);
+}
 
 export function buildOptions(type: ExportType, pixelRatio = 4) {
   return {
@@ -41,7 +45,7 @@ export async function saveBlob(blob: Blob, filename: string) {
     try {
       await navigator.share({ files: [file], title: filename });
       return;
-    } catch (e) {
+    } catch (e: any) {
       if (e?.name === 'AbortError') return;
     }
   }
@@ -53,15 +57,19 @@ export async function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/* -------------------------------------------
-   🧠 iOS FIX: Full Raster + True-DPI Scaling
-   ------------------------------------------- */
+/* ──────────────────────────────────────────────────────────
+   iOS FIXES
+   1) Localize <img> sources to blob: (prevents taint, missing BGs)
+   2) 1× clean snapshot (no transforms)
+   3) Redraw into true Hi-DPI canvas via ImageBitmap
+   ────────────────────────────────────────────────────────── */
+
 async function preloadImage(url: string): Promise<string> {
   if (!url || url.startsWith('data:')) return url;
   try {
-    const r = await fetch(url, { mode: 'cors', credentials: 'omit' });
-    const blob = await r.blob();
-    return URL.createObjectURL(blob);
+    const r = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+    const b = await r.blob();
+    return URL.createObjectURL(b);
   } catch {
     return url;
   }
@@ -71,7 +79,7 @@ async function localizeImages(root: HTMLElement) {
   const imgs = Array.from(root.querySelectorAll('img'));
   const restores: Array<() => void> = [];
   for (const img of imgs) {
-    const src = img.getAttribute('src');
+    const src = img.getAttribute('src') || '';
     if (!src) continue;
     const safe = await preloadImage(src);
     if (safe !== src) {
@@ -81,59 +89,102 @@ async function localizeImages(root: HTMLElement) {
         URL.revokeObjectURL(safe);
       });
     }
+    img.setAttribute('crossorigin', 'anonymous');
+    img.setAttribute('decoding', 'sync');
+    img.referrerPolicy = 'no-referrer';
   }
   return () => restores.forEach((fn) => fn());
 }
 
+async function inlineBackgrounds(root: HTMLElement) {
+  const els = Array.from(root.querySelectorAll<HTMLElement>('*'));
+  const urlRegex = /url\(["']?(.+?)["']?\)/g;
+  const revokes: string[] = [];
+
+  for (const el of els) {
+    const cs = getComputedStyle(el);
+    const bg = cs.backgroundImage;
+    if (!bg || bg === 'none') continue;
+
+    let newBg = bg;
+    let match: RegExpExecArray | null;
+    urlRegex.lastIndex = 0;
+
+    while ((match = urlRegex.exec(bg))) {
+      const url = match[1];
+      const blobUrl = await preloadImage(url);
+      if (blobUrl !== url) {
+        newBg = newBg.replace(match[0], `url("${blobUrl}")`);
+        revokes.push(blobUrl);
+      }
+    }
+    if (newBg !== bg) {
+      el.style.backgroundImage = newBg;
+      el.style.backgroundClip = 'border-box';
+    }
+  }
+
+  return () => revokes.forEach((u) => URL.revokeObjectURL(u));
+}
+
+// iOS ultra-HD capture using modern-screenshot for the DOM → then redraw.
 export async function captureIOSUltraHD(node: HTMLElement) {
   const rect = node.getBoundingClientRect();
   const scale = getSafeScale();
 
-  // Preload images
-  const restoreImages = await localizeImages(node);
+  // 0) make a hidden sandbox clone to avoid mutating live UI
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.left = '-10000px';
+  host.style.top = '0';
+  host.style.opacity = '1';
+  host.style.pointerEvents = 'none';
 
-  // Disable transforms that break rasterization
-  const prev = {
-    transform: node.style.transform,
-    filter: node.style.filter,
-    backdrop: node.style.backdropFilter,
-  };
-  node.style.transform = 'none';
-  node.style.filter = 'none';
-  node.style.backdropFilter = 'none';
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.style.transform = 'none';
+  clone.style.filter = 'none';
+  clone.style.backdropFilter = 'none';
+  clone.style.width = `${Math.round(rect.width)}px`;
+  clone.style.height = `${Math.round(rect.height)}px`;
+  host.appendChild(clone);
+  document.body.appendChild(host);
 
-  // Import modern-screenshot dynamically
-  const { domToBlob } = await import('modern-screenshot');
+  const undoImgs = await localizeImages(clone);
+  const undoBgs = await inlineBackgrounds(clone);
 
-  // Step 1: Capture at 1×
-  const base = await domToBlob(node, {
-    ...buildOptions('image/png', 1),
-    width: rect.width,
-    height: rect.height,
-  });
-  if (!base) throw new Error('Base capture failed');
+  try {
+    const { domToBlob } = await import('modern-screenshot');
 
-  // Step 2: True high-res redraw
-  const img = await createImageBitmap(base);
-  const canvas = document.createElement('canvas');
-  canvas.width = rect.width * scale;
-  canvas.height = rect.height * scale;
+    // 1) 1× clean snapshot (prevents iOS text shrink & BG loss)
+    const base = await domToBlob(clone, {
+      ...buildOptions('image/png', 1),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    });
+    if (!base) throw new Error('Base capture failed');
 
-  const ctx = canvas.getContext('2d', { alpha: true })!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.scale(scale, scale);
-  ctx.drawImage(img, 0, 0);
-  img.close();
+    // 2) Hi-DPI redraw
+    const bitmap = await createImageBitmap(base);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(rect.width * scale);
+    canvas.height = Math.round(rect.height * scale);
 
-  // Step 3: Export in full 4× DPI
-  const blob: Blob = await new Promise((res, rej) =>
-    canvas.toBlob((b) => (b ? res(b) : rej('Export failed')), 'image/png', 1.0)
-  );
+    const ctx = canvas.getContext('2d', { alpha: true })!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
 
-  // Restore
-  Object.assign(node.style, prev);
-  restoreImages();
+    // 3) Export PNG @ max quality
+    const out: Blob = await new Promise((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej('Export failed')), 'image/png', 1.0)
+    );
 
-  return blob;
+    return out;
+  } finally {
+    undoBgs();
+    undoImgs();
+    host.remove();
+  }
 }
