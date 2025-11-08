@@ -12,7 +12,6 @@ export async function waitForFonts() {
     // @ts-ignore
     if (document.fonts?.ready) await document.fonts.ready;
   } catch {}
-  // small settle so Safari finishes glyph raster
   await new Promise((r) => setTimeout(r, 80));
 }
 
@@ -21,7 +20,6 @@ export function makeFilename(base: string, ext = 'png') {
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-// iOS can lie about DPR; 4–6× is the sweet spot without hitting mem caps.
 export function getSafeScale() {
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 2;
   return clamp(Math.round(dpr * 2), 3, 6);
@@ -57,13 +55,7 @@ export async function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/* ──────────────────────────────────────────────────────────
-   iOS FIXES
-   1) Localize <img> sources to blob: (prevents taint, missing BGs)
-   2) 1× clean snapshot (no transforms)
-   3) Redraw into true Hi-DPI canvas via ImageBitmap
-   ────────────────────────────────────────────────────────── */
-
+/* iOS Ultra-HD pipeline with size cap */
 async function preloadImage(url: string): Promise<string> {
   if (!url || url.startsWith('data:')) return url;
   try {
@@ -111,13 +103,14 @@ async function inlineBackgrounds(root: HTMLElement) {
     urlRegex.lastIndex = 0;
 
     while ((match = urlRegex.exec(bg))) {
-      const url = match[1];
-      const blobUrl = await preloadImage(url);
-      if (blobUrl !== url) {
-        newBg = newBg.replace(match[0], `url("${blobUrl}")`);
-        revokes.push(blobUrl);
+      const u = match[1];
+      const safe = await preloadImage(u);
+      if (safe !== u) {
+        newBg = newBg.replace(match[0], `url("${safe}")`);
+        revokes.push(safe);
       }
     }
+
     if (newBg !== bg) {
       el.style.backgroundImage = newBg;
       el.style.backgroundClip = 'border-box';
@@ -127,35 +120,100 @@ async function inlineBackgrounds(root: HTMLElement) {
   return () => revokes.forEach((u) => URL.revokeObjectURL(u));
 }
 
-// iOS ultra-HD capture using modern-screenshot for the DOM → then redraw.
-export async function captureIOSUltraHD(node: HTMLElement) {
-  const rect = node.getBoundingClientRect();
-  const scale = getSafeScale();
+function makeSandboxClone(node: HTMLElement, w: number, h: number) {
+  const clone = node.cloneNode(true) as HTMLElement;
+  const all = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>('*'))];
 
-  // 0) make a hidden sandbox clone to avoid mutating live UI
+  for (const el of all) {
+    el.style.transform = 'none';
+    el.style.filter = 'none';
+    el.style.backdropFilter = 'none';
+    el.style.willChange = 'auto';
+    (el.style as any).webkitTextSizeAdjust = '100%';
+    el.style.textRendering = 'geometricPrecision';
+    el.style.fontSynthesis = 'none';
+  }
+
+  clone.style.width = `${Math.round(w)}px`;
+  clone.style.height = `${Math.round(h)}px`;
+
   const host = document.createElement('div');
   host.style.position = 'fixed';
   host.style.left = '-10000px';
   host.style.top = '0';
   host.style.opacity = '1';
   host.style.pointerEvents = 'none';
-
-  const clone = node.cloneNode(true) as HTMLElement;
-  clone.style.transform = 'none';
-  clone.style.filter = 'none';
-  clone.style.backdropFilter = 'none';
-  clone.style.width = `${Math.round(rect.width)}px`;
-  clone.style.height = `${Math.round(rect.height)}px`;
+  host.style.zIndex = '-1';
   host.appendChild(clone);
   document.body.appendChild(host);
 
+  return { clone, host, dispose: () => host.remove() };
+}
+
+async function loadImage(blob: Blob) {
+  return new Promise<HTMLImageElement>((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = URL.createObjectURL(blob);
+  });
+}
+
+function drawHighQuality(
+  canvas: HTMLCanvasElement,
+  img: HTMLImageElement,
+  scale: number,
+  w: number,
+  h: number
+) {
+  // @ts-ignore
+  if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
+  const ctx = canvas.getContext('2d', { alpha: true })!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.drawImage(img, 0, 0, w, h);
+}
+
+async function progressiveUpscale(blob: Blob, baseW: number, baseH: number, targetScale: number) {
+  const img1 = await loadImage(blob);
+
+  // mid 2×
+  const mid = document.createElement('canvas');
+  mid.width = baseW * 2;
+  mid.height = baseH * 2;
+  drawHighQuality(mid, img1, 2, baseW, baseH);
+  URL.revokeObjectURL(img1.src);
+
+  const midBlob: Blob = await new Promise((res, rej) =>
+    mid.toBlob((b) => (b ? res(b) : rej(new Error('mid toBlob failed'))), 'image/png', 1)
+  );
+
+  if (targetScale <= 2) return midBlob;
+
+  const img2 = await loadImage(midBlob);
+  const out = document.createElement('canvas');
+  out.width = baseW * targetScale;
+  out.height = baseH * targetScale;
+  drawHighQuality(out, img2, targetScale / 2, mid.width, mid.height);
+  URL.revokeObjectURL(img2.src);
+
+  return await new Promise<Blob>((res, rej) =>
+    out.toBlob((b) => (b ? res(b) : rej(new Error('final toBlob failed'))), 'image/png', 1)
+  );
+}
+
+export async function captureIOSUltraHD(node: HTMLElement) {
+  const rect = node.getBoundingClientRect();
+  const maxEdge = 4096;   // common safe max on iOS
+  const scale = Math.min(getSafeScale(), Math.floor(maxEdge / Math.max(rect.width, rect.height)));
+
+  const { clone, host, dispose } = makeSandboxClone(node, rect.width, rect.height);
   const undoImgs = await localizeImages(clone);
   const undoBgs = await inlineBackgrounds(clone);
 
   try {
     const { domToBlob } = await import('modern-screenshot');
-
-    // 1) 1× clean snapshot (prevents iOS text shrink & BG loss)
     const base = await domToBlob(clone, {
       ...buildOptions('image/png', 1),
       width: Math.round(rect.width),
@@ -163,28 +221,10 @@ export async function captureIOSUltraHD(node: HTMLElement) {
     });
     if (!base) throw new Error('Base capture failed');
 
-    // 2) Hi-DPI redraw
-    const bitmap = await createImageBitmap(base);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(rect.width * scale);
-    canvas.height = Math.round(rect.height * scale);
-
-    const ctx = canvas.getContext('2d', { alpha: true })!;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.drawImage(bitmap, 0, 0);
-    bitmap.close();
-
-    // 3) Export PNG @ max quality
-    const out: Blob = await new Promise((res, rej) =>
-      canvas.toBlob((b) => (b ? res(b) : rej('Export failed')), 'image/png', 1.0)
-    );
-
-    return out;
+    return await progressiveUpscale(base, Math.round(rect.width), Math.round(rect.height), scale);
   } finally {
-    undoBgs();
     undoImgs();
-    host.remove();
+    undoBgs();
+    dispose();
   }
 }
