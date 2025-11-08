@@ -1,196 +1,70 @@
 'use client';
 
-import { useRef, useState, RefObject } from 'react';
-import { ProfileCardPreview } from '@/components/ProfileCardPreview';
-import { DownloadCardButton } from '@/components/DownloadCardButton';
+import { useRef } from 'react';
+import { Download } from 'lucide-react';
 import { showToast } from '@/lib/toast';
-import { domToBlob } from 'modern-screenshot';
 import {
   buildOptions,
-  copyBlob,
   makeFilename,
   saveBlob,
   waitForFonts,
   getSafeScale,
   isIOS,
-  applyIOSTextFix,
-  removeIOSTextFix,
+  captureIOSUltraHD,
 } from '@/lib/capture';
-import type { Theme } from '@/lib/themes';
-import type { ProfileData } from '@/app/page';
 
-// ---------- Viral Messages ----------
-const VIRAL_MESSAGES = [
-  "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
-  "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
-  "This hits different.\n\nMy new X card looks like something straight out of a design keynote.\n\nhttps://xprofilecards.com",
-  "Small detail. Big difference.\n\nTurned my X profile into a brand with one click.\n\nhttps://xprofilecards.com",
-  "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com",
-];
+export function DownloadCardButton({
+  targetRef,
+  filename,
+}: {
+  targetRef: React.RefObject<HTMLDivElement>;
+  filename: string;
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
 
-const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
-
-// --- Utility: Preload images as Blob URLs ---
-async function preloadImage(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
-  try {
-    const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch {
-    return url;
-  }
-}
-
-// --- iOS Ultra HD Capture (safe with preloaded images) ---
-async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
-  // Step 1: Preload all <img> elements to local Blob URLs
-  const imgEls = Array.from(node.querySelectorAll('img'));
-  const restoreMap: Record<string, string> = {};
-  for (const img of imgEls) {
-    const src = img.getAttribute('src');
-    if (!src) continue;
-    const safeSrc = await preloadImage(src);
-    restoreMap[safeSrc] = src;
-    img.setAttribute('src', safeSrc);
-  }
-
-  // Step 2: Capture at 1× to avoid text shrink and alpha loss
-  const rect = node.getBoundingClientRect();
-  const baseBlob = await domToBlob(node, {
-    ...buildOptions('image/png', 1),
-    width: rect.width,
-    height: rect.height,
-  });
-  if (!baseBlob) throw new Error('Base capture failed');
-
-  // Step 3: Upscale manually to 4× for retina clarity
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = URL.createObjectURL(baseBlob);
-  });
-
-  const upscale = Math.min(scale, 4);
-  const canvas = document.createElement('canvas');
-  canvas.width = rect.width * upscale;
-  canvas.height = rect.height * upscale;
-  // @ts-ignore
-  if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
-
-  const ctx = canvas.getContext('2d', { alpha: true })!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.scale(upscale, upscale);
-  ctx.drawImage(img, 0, 0);
-
-  // Step 4: Cleanup temp URLs
-  URL.revokeObjectURL(img.src);
-  for (const [safe, orig] of Object.entries(restoreMap)) {
-    imgEls.forEach((img) => {
-      if (img.getAttribute('src') === safe) img.setAttribute('src', orig);
-    });
-    URL.revokeObjectURL(safe);
-  }
-
-  // Step 5: Export final blob
-  return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject('Export failed')), 'image/png', 1.0);
-  });
-}
-
-// --- X Logo ---
-const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>
-);
-
-// --- Main Component ---
-export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
-  const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
-  const [sharing, setSharing] = useState(false);
-
-  const cleanHandle = data.handle?.replace(/[@\s]/g, '') || 'card';
-  const baseName = `${Date.now()}-${cleanHandle}-${theme.id}`;
-
-  const handleShare = async () => {
-    const node = cardRef.current;
+  const handleDownload = async () => {
+    const node = targetRef.current;
     if (!node) return;
-    setSharing(true);
 
     try {
-      showToast('Rendering...', 'loading', 800);
+      showToast('Rendering 4× HD…', 'loading', 900);
       await waitForFonts();
-      if (isIOS()) applyIOSTextFix();
 
-      // Capture with full background safety
-      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
-      const blob = isIOS()
-        ? await captureUltraHDIOS(node, 4)
-        : await domToBlob(node, {
-            ...buildOptions('image/png', scale),
-            width: node.offsetWidth * scale,
-            height: node.offsetHeight * scale,
-            style: { transform: 'none', zoom: scale },
-          });
+      let blob: Blob | null = null;
 
-      if (isIOS()) removeIOSTextFix();
-      if (!blob) throw new Error('Image generation failed');
-
-      const filename = makeFilename(baseName, 'png');
-      const viral = pickMsg();
-
-      try {
-        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
-      } catch {}
-
-      // --- Native iOS "Save to Photos" flow ---
-      const file = new File([blob], filename, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'My X Profile Card',
-          text: viral,
-        });
-        showToast('📸 Saved to Photos', 'success', 1600);
+      if (isIOS()) {
+        // iOS: strict ultra-HD pipeline
+        blob = await captureIOSUltraHD(node);
       } else {
-        await saveBlob(blob, filename, { useShare: false });
-        showToast('💾 Saved image', 'success', 1200);
+        // others: straight hi-DPI capture
+        const { domToBlob } = await import('modern-screenshot');
+        const scale = Math.min(getSafeScale(), 8);
+        blob = await domToBlob(node, {
+          ...buildOptions('image/png', scale),
+          width: Math.round(node.offsetWidth * scale),
+          height: Math.round(node.offsetHeight * scale),
+          style: { transform: 'none' as any },
+        });
       }
 
-      // --- Launch X app only (no web fallback) ---
-      const encoded = encodeURIComponent(viral);
-      setTimeout(() => {
-        window.location.href = `twitter://post?message=${encoded}`;
-      }, 1000);
-
-      showToast('✨ Opening X App…', 'success', 800);
-    } catch (err) {
-      console.error(err);
-      showToast('❌ Share failed', 'error', 2000);
-    } finally {
-      if (isIOS()) removeIOSTextFix();
-      setSharing(false);
+      if (!blob) throw new Error('Capture failed');
+      await saveBlob(blob, makeFilename(filename, 'png'));
+      showToast('✅ Downloaded (true 4×)', 'success', 1600);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Export failed', 'error', 2000);
     }
   };
 
   return (
-    <div className="bg-transparent w-full flex flex-col gap-4">
-      <ProfileCardPreview ref={cardRef} data={data} theme={theme} />
-      <div className="flex gap-3 w-full justify-center">
-        <DownloadCardButton targetRef={cardRef} filename={baseName} />
-        <button
-          type="button"
-          onClick={handleShare}
-          disabled={sharing}
-          className="flex-1 m-1 ml-0 py-3 bg-black text-white rounded-full text-sm font-bold shadow-md hover:bg-gray-900 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-        >
-          <XLogo className="w-4 h-4" />
-          {sharing ? 'Preparing…' : 'Share to X'}
-        </button>
-      </div>
-    </div>
+    <button
+      ref={btnRef}
+      onClick={handleDownload}
+      className="flex-1 m-1 mr-0 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all"
+      type="button"
+    >
+      <Download className="w-4 h-4" />
+      Download
+    </button>
   );
 }
