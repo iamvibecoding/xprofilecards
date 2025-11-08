@@ -15,95 +15,54 @@ import {
   removeIOSTextFix,
 } from '@/lib/capture';
 
-/** Preload image and return blob URL (Safari-safe) */
-async function preloadImage(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
-  try {
-    const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch {
-    return url;
-  }
-}
-
 /**
- * iOS "Retina Fix" — Hybrid Capture for max sharpness and no color washout.
- * 1️⃣ Neutralize transforms/filters.
- * 2️⃣ Preload all images (fix background loss).
- * 3️⃣ Capture 2× for glyph fidelity.
- * 4️⃣ Manually upscale to 4× using SRGB-correct resampling.
+ * --- Ultra HD iOS Fallback ---
+ * 1️⃣ Capture at 1× for accuracy
+ * 2️⃣ Manually upscale to 4× using canvas resampling
  */
-async function captureRetinaIOS(node: HTMLElement) {
+async function captureUltraHDIOS(node: HTMLElement, scale: number) {
   const rect = node.getBoundingClientRect();
-  const baseScale = 2; // optimal text crispness
-  const finalScale = 4;
 
-  // Preload all images
-  const imgs = Array.from(node.querySelectorAll('img'));
-  const replaced: { el: HTMLImageElement; orig: string; blob?: string }[] = [];
-  for (const el of imgs) {
-    const src = el.getAttribute('src');
-    if (!src) continue;
-    const blobUrl = await preloadImage(src);
-    if (blobUrl !== src) {
-      el.setAttribute('src', blobUrl);
-      replaced.push({ el, orig: src, blob: blobUrl });
-    }
-  }
-
-  // Neutralize transform/filter for clean rasterization
-  const prevTransform = node.style.transform;
-  const prevFilter = node.style.filter;
-  node.style.transform = 'none';
-  node.style.filter = 'none';
-
-  // Capture base at 2×
+  // Step 1: low-DPI capture (avoids iOS text/blur issues)
   const baseBlob = await domToBlob(node, {
-    ...buildOptions('image/png', baseScale),
-    width: rect.width * baseScale,
-    height: rect.height * baseScale,
+    ...buildOptions('image/png', 1),
+    width: rect.width,
+    height: rect.height,
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // Load and upscale manually
-  const img = await new Promise<HTMLImageElement>((res, rej) => {
+  // Step 2: upscale manually using color-managed canvas
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
-    el.onload = () => res(el);
-    el.onerror = rej;
+    el.onload = () => resolve(el);
+    el.onerror = reject;
     el.src = URL.createObjectURL(baseBlob);
   });
 
+  const upscale = Math.min(scale, 4); // 4× max for iOS Retina
   const canvas = document.createElement('canvas');
-  canvas.width = rect.width * finalScale;
-  canvas.height = rect.height * finalScale;
-
+  canvas.width = rect.width * upscale;
+  canvas.height = rect.height * upscale;
   // @ts-ignore
   if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
 
-  const ctx = canvas.getContext('2d', { alpha: true })!;
+  const ctx = canvas.getContext('2d', {
+    alpha: true,
+    willReadFrequently: false,
+  })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.setTransform(finalScale / baseScale, 0, 0, finalScale / baseScale, 0, 0);
-  ctx.drawImage(img, 0, 0, rect.width * baseScale, rect.height * baseScale);
-
+  ctx.scale(upscale, upscale);
+  ctx.drawImage(img, 0, 0);
   URL.revokeObjectURL(img.src);
 
-  // Restore DOM
-  node.style.transform = prevTransform;
-  node.style.filter = prevFilter;
-  for (const r of replaced) {
-    r.el.setAttribute('src', r.orig);
-    if (r.blob) URL.revokeObjectURL(r.blob);
-  }
-
-  return await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject('Export failed')),
-      'image/png',
-      1.0
-    )
-  );
+  return await new Promise<Blob>((resolve, reject) => {
+    try {
+      canvas.toBlob((b) => (b ? resolve(b) : reject('Canvas export failed')), 'image/png', 1.0);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 interface DownloadCardButtonProps {
@@ -119,13 +78,14 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering Retina HD...', 'loading', 1000);
+      showToast('Rendering HD image...', 'loading', 1000);
       await waitForFonts();
-      if (isIOS()) applyIOSTextFix();
 
       const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
+      if (isIOS()) applyIOSTextFix();
+
       const blob = isIOS()
-        ? await captureRetinaIOS(node)
+        ? await captureUltraHDIOS(node, 4) // forced 4× retina quality for iOS
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -135,9 +95,9 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
 
       if (isIOS()) removeIOSTextFix();
 
-      if (!blob) throw new Error('Failed to capture');
+      if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded Retina HD', 'success', 2000);
+      showToast('✅ Downloaded in HD (4×)', 'success', 1800);
     } catch (err) {
       console.error(err);
       if (isIOS()) removeIOSTextFix();
