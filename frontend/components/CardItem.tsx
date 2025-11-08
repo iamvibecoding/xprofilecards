@@ -19,6 +19,40 @@ import {
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
+// --- Safari high-res fix (same as DownloadCardButton) ---
+async function captureHighResSafari(node: HTMLElement, scale: number) {
+  const rect = node.getBoundingClientRect();
+
+  // 1️⃣ capture normal-resolution
+  const baseBlob = await domToBlob(node, {
+    ...buildOptions('image/png', 1),
+    width: rect.width,
+    height: rect.height,
+  });
+  if (!baseBlob) throw new Error('Base capture failed');
+
+  // 2️⃣ upscale via 2D canvas
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = URL.createObjectURL(baseBlob);
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = rect.width * scale;
+  canvas.height = rect.height * scale;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(img.src);
+
+  return await new Promise<Blob | null>((res) =>
+    canvas.toBlob((b) => res(b), 'image/png', 1.0)
+  );
+}
+
+// --- Viral captions ---
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
@@ -61,23 +95,30 @@ export function CardItem({ data, theme }: CardItemProps) {
 
       const rect = node.getBoundingClientRect();
       const scale = getSafeScale();
-      const blob = await domToBlob(node, {
-        ...buildOptions('image/png', scale),
-        width: rect.width * scale,
-        height: rect.height * scale,
-      });
+
+      const blob = isIOS()
+        ? await captureHighResSafari(node, scale)
+        : await domToBlob(node, {
+            ...buildOptions('image/png', scale),
+            width: rect.width * scale,
+            height: rect.height * scale,
+          });
 
       if (isIOS()) removeIOSTextFix();
       if (!blob) throw new Error('Image generation failed');
 
       const filename = makeFilename(baseName, 'png');
+
+      // Clipboard copy (non-blocking)
       try {
-        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1200);
+        if (await copyBlob(blob))
+          showToast('📋 Copied to clipboard', 'success', 1200);
       } catch {}
 
+      // Save/share file
       await saveBlob(blob, filename, { useShare: true });
 
-      // --- Open X ---
+      // --- X share intent ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
@@ -86,15 +127,18 @@ export function CardItem({ data, theme }: CardItemProps) {
         const start = Date.now();
         window.location.href = appLink;
         setTimeout(() => {
-          if (Date.now() - start < 1500)
-            window.open(webLink, '_blank', 'width=550,height=700,menubar=no,toolbar=no');
+          if (Date.now() - start < 1500) {
+            window.open(
+              webLink,
+              '_blank',
+              'width=550,height=700,menubar=no,toolbar=no'
+            );
+          }
         }, 1500);
       };
 
       showToast('✨ Opening X…', 'success', 800);
-
-      // Run inside a trusted gesture on iOS
-      if (isIOS()) openXApp();
+      if (isIOS()) openXApp(); // trusted gesture
       else requestAnimationFrame(openXApp);
     } catch (e) {
       console.error(e);

@@ -20,41 +20,41 @@ interface DownloadCardButtonProps {
   filename: string;
 }
 
-// --- NEW: Safari high-res capture wrapper ---
-async function captureForSafari(node: HTMLElement, scale: number) {
+/**
+ * On Safari, scaling the DOM causes black renders for blurred/transparent layers.
+ * Instead, capture at 1x and upscale the resulting canvas manually.
+ */
+async function captureHighResSafari(node: HTMLElement, scale: number) {
   const rect = node.getBoundingClientRect();
 
-  // Clone the card node
-  const clone = node.cloneNode(true) as HTMLElement;
-  clone.style.transform = `scale(${scale})`;
-  clone.style.transformOrigin = 'top left';
-  clone.style.width = `${rect.width}px`;
-  clone.style.height = `${rect.height}px`;
-  clone.style.position = 'absolute';
-  clone.style.left = '0';
-  clone.style.top = '0';
-  clone.style.zIndex = '-9999';
+  // 1️⃣ capture normal-resolution blob
+  const baseBlob = await domToBlob(node, {
+    ...buildOptions('image/png', 1),
+    width: rect.width,
+    height: rect.height,
+  });
+  if (!baseBlob) throw new Error('Failed base capture');
 
-  // Wrapper to avoid iOS composition issues
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'fixed';
-  wrapper.style.left = '-9999px';
-  wrapper.style.top = '0';
-  wrapper.style.width = `${rect.width * scale}px`;
-  wrapper.style.height = `${rect.height * scale}px`;
-  wrapper.style.overflow = 'hidden';
-  wrapper.style.background = 'transparent';
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
-
-  const blob = await domToBlob(wrapper, {
-    ...buildOptions('image/png', 1), // <- already scaled via transform
-    width: rect.width * scale,
-    height: rect.height * scale,
+  // 2️⃣ read it into an <img> and paint to scaled canvas
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = URL.createObjectURL(baseBlob);
   });
 
-  wrapper.remove();
-  return blob;
+  const canvas = document.createElement('canvas');
+  canvas.width = rect.width * scale;
+  canvas.height = rect.height * scale;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(img.src);
+
+  // 3️⃣ convert canvas back to blob
+  return await new Promise<Blob | null>((res) =>
+    canvas.toBlob((b) => res(b), 'image/png', 1.0)
+  );
 }
 
 export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonProps) {
@@ -71,9 +71,9 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
       const scale = getSafeScale();
       if (isIOS()) applyIOSTextFix();
 
-      // Safari uses transform scale wrapper to maintain size
+      // 🧩 use safe upscale on Safari
       const blob = isIOS()
-        ? await captureForSafari(node, scale)
+        ? await captureHighResSafari(node, scale)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
