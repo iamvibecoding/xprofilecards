@@ -15,7 +15,7 @@ import {
   removeIOSTextFix,
 } from '@/lib/capture';
 
-/** Utility: preload image as a Blob URL to avoid CORS tainting */
+/** Preload image and return blob URL (fixes Safari CORS taint) */
 async function preloadImage(url: string): Promise<string> {
   if (!url || url.startsWith('data:')) return url;
   try {
@@ -28,24 +28,32 @@ async function preloadImage(url: string): Promise<string> {
 }
 
 /**
- * --- iOS-safe Ultra HD capture ---
- * Preloads background + avatar → captures at 1× → upscales 4×
+ * True-HD Capture for iOS Safari/Chrome
+ * 1️⃣ Preloads all images as blob URLs
+ * 2️⃣ Captures clean 1× snapshot (no CSS transforms)
+ * 3️⃣ Upscales manually to 4× using high-quality resampling
  */
-async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
-  // Step 1: Preload all <img> elements to blob URLs (avoid CORS)
-  const imgEls = Array.from(node.querySelectorAll('img'));
-  const restoreMap: Record<string, string> = {};
+async function captureTrueHDIOS(node: HTMLElement, scale = 4) {
+  const rect = node.getBoundingClientRect();
 
-  for (const img of imgEls) {
+  // Preload and localize all images
+  const imgs = Array.from(node.querySelectorAll('img'));
+  const restoreMap: Record<string, string> = {};
+  for (const img of imgs) {
     const src = img.getAttribute('src');
     if (!src) continue;
-    const safeSrc = await preloadImage(src);
-    restoreMap[safeSrc] = src;
-    img.setAttribute('src', safeSrc);
+    const safe = await preloadImage(src);
+    restoreMap[safe] = src;
+    img.setAttribute('src', safe);
   }
 
-  // Step 2: Capture low-DPI base for text accuracy
-  const rect = node.getBoundingClientRect();
+  // Temporarily disable GPU effects for cleaner rasterization
+  const prevTransform = node.style.transform;
+  const prevFilter = node.style.filter;
+  node.style.transform = 'none';
+  node.style.filter = 'none';
+
+  // Capture at 1× (no Safari text scaling)
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -53,47 +61,41 @@ async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // Step 3: Upscale manually on a color-managed canvas
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+  // Load image to upscale
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
     const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
+    el.onload = () => res(el);
+    el.onerror = rej;
     el.src = URL.createObjectURL(baseBlob);
   });
 
-  const upscale = Math.min(scale, 4);
+  // Create HD canvas
   const canvas = document.createElement('canvas');
-  canvas.width = rect.width * upscale;
-  canvas.height = rect.height * upscale;
+  canvas.width = rect.width * scale;
+  canvas.height = rect.height * scale;
   // @ts-ignore
   if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
-
-  const ctx = canvas.getContext('2d', {
-    alpha: true,
-    willReadFrequently: false,
-  })!;
+  const ctx = canvas.getContext('2d', { alpha: true })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.scale(upscale, upscale);
+  ctx.scale(scale, scale);
   ctx.drawImage(img, 0, 0);
 
-  // Step 4: Clean up object URLs
+  // Restore original transforms and URLs
+  node.style.transform = prevTransform;
+  node.style.filter = prevFilter;
   URL.revokeObjectURL(img.src);
   for (const [safe, orig] of Object.entries(restoreMap)) {
-    imgEls.forEach((img) => {
-      if (img.getAttribute('src') === safe) img.setAttribute('src', orig);
+    imgs.forEach((i) => {
+      if (i.getAttribute('src') === safe) i.setAttribute('src', orig);
     });
     URL.revokeObjectURL(safe);
   }
 
-  // Step 5: Return high-quality PNG blob
-  return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Canvas export failed'))),
-      'image/png',
-      1.0
-    );
-  });
+  // Export at max quality
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject('Export failed')), 'image/png', 1.0)
+  );
 }
 
 interface DownloadCardButtonProps {
@@ -109,14 +111,13 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering 4× HD image...', 'loading', 1000);
+      showToast('Rendering in 4× HD...', 'loading', 1000);
       await waitForFonts();
-
-      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       if (isIOS()) applyIOSTextFix();
 
+      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       const blob = isIOS()
-        ? await captureUltraHDIOS(node, 4)
+        ? await captureTrueHDIOS(node, 4)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -126,7 +127,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
 
       if (isIOS()) removeIOSTextFix();
 
-      if (!blob) throw new Error('Failed to capture image');
+      if (!blob) throw new Error('Failed to capture');
       await saveBlob(blob, makeFilename(filename, 'png'));
       showToast('✅ Downloaded 4× HD image', 'success', 2000);
     } catch (err) {
