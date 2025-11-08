@@ -197,7 +197,11 @@ export default function RootLayout({
         />
 
         {/* --- VIEWPORT & VERIFICATION --- */}
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        /> 
+        <meta name="robots" content="index, follow" />
         <meta
           name="google-site-verification"
           content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo"

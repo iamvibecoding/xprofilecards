@@ -4,6 +4,7 @@ export function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+// Ensure web fonts are ready before capture
 export async function waitForFonts() {
   try {
     const fonts = (document as any).fonts;
@@ -12,19 +13,45 @@ export async function waitForFonts() {
   } catch {}
 }
 
+// Sanitize filename
 export function makeFilename(base: string, ext = 'png') {
   const safe = (base || 'card').replace(/[^\w.-]+/g, '-').toLowerCase();
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-/**
- * Normalize capture scale so text doesn’t shrink on high-DPR screens
- */
+// --- NEW: iOS Safari font scaling fix ---
+export function prepareSafariCapture(node: HTMLElement) {
+  node.setAttribute('data-ios-capture', 'true');
+  const style = document.createElement('style');
+  style.id = 'ios-font-fix';
+  style.textContent = `
+    [data-ios-capture="true"],
+    [data-ios-capture="true"] * {
+      -webkit-text-size-adjust: none !important;
+      transform: scale(1) !important;
+      transform-origin: top left !important;
+      zoom: 1 !important;
+      font-size: inherit !important;
+      line-height: normal !important;
+      letter-spacing: normal !important;
+      text-rendering: geometricPrecision !important;
+      -webkit-font-smoothing: antialiased !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+export function cleanupSafariCapture(node: HTMLElement) {
+  node.removeAttribute('data-ios-capture');
+  const style = document.getElementById('ios-font-fix');
+  if (style) style.remove();
+}
+
+// --- scaling logic ---
 export function getSafeScale() {
   const dpr = window.devicePixelRatio || 1;
-  // Safari over-scales fonts when DPR > 2, so correct it
   const base = 4;
-  const corrected = base / Math.min(dpr, 2);
+  const corrected = base / Math.min(dpr, 2); // Prevent Safari overscaling
   return clamp(corrected, 2, 5);
 }
 

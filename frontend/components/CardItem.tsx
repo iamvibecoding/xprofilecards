@@ -12,6 +12,8 @@ import {
   saveBlob,
   waitForFonts,
   getSafeScale,
+  prepareSafariCapture,
+  cleanupSafariCapture,
 } from '@/lib/capture';
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
@@ -57,8 +59,11 @@ export function CardItem({ data, theme }: CardItemProps) {
 
       const rect = node.getBoundingClientRect();
       const scale = getSafeScale();
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-      // temporarily normalize layout scale for Safari / mobile
+      // iOS font scaling fix
+      if (isIOS) prepareSafariCapture(node);
+
       const originalTransform = node.style.transform;
       const originalZoom = node.style.zoom;
       node.style.transform = 'none';
@@ -70,9 +75,9 @@ export function CardItem({ data, theme }: CardItemProps) {
         height: rect.height * scale,
       });
 
-      // restore after capture
       node.style.transform = originalTransform;
       node.style.zoom = originalZoom;
+      if (isIOS) cleanupSafariCapture(node);
 
       if (!blob) throw new Error('Image generation failed');
       const filename = makeFilename(baseName, 'png');
@@ -82,7 +87,7 @@ export function CardItem({ data, theme }: CardItemProps) {
         if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
       } catch {}
 
-      // iOS native share (Save to Photos)
+      // Native iOS/Android share
       if (navigator.canShare?.({ files: [new File([blob], filename)] })) {
         try {
           await navigator.share({
@@ -99,11 +104,10 @@ export function CardItem({ data, theme }: CardItemProps) {
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- Safari-safe deep-link detection (no double launch) ---
+      // --- Safari-safe deep-link (no double launch) ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
-
       const timeout = 1500;
       const start = Date.now();
 
