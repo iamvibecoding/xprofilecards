@@ -25,7 +25,7 @@ async function captureUltraHDIOS(node: HTMLElement, scale: number) {
 
   // Step 1: low-DPI capture (avoids iOS text/blur issues)
   const baseBlob = await domToBlob(node, {
-    ...buildOptions('image/png', 1),
+    ...buildOptions('image/png', 4),
     width: rect.width,
     height: rect.height,
   });
