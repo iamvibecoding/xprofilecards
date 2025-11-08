@@ -21,21 +21,22 @@ interface DownloadCardButtonProps {
 }
 
 /**
- * On Safari, scaling the DOM causes black renders for blurred/transparent layers.
- * Instead, capture at 1x and upscale the resulting canvas manually.
+ * --- iOS high-quality fallback ---
+ * 1. Capture at 1× (no Safari black/blur bug)
+ * 2. Manually upscale to full DPI with quality resampling
  */
-async function captureHighResSafari(node: HTMLElement, scale: number) {
+async function captureHighResIOS(node: HTMLElement, scale: number) {
   const rect = node.getBoundingClientRect();
 
-  // 1️⃣ capture normal-resolution blob
+  // 1️⃣ normal low-scale capture (works fine on iOS)
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
     height: rect.height,
   });
-  if (!baseBlob) throw new Error('Failed base capture');
+  if (!baseBlob) throw new Error('Base capture failed');
 
-  // 2️⃣ read it into an <img> and paint to scaled canvas
+  // 2️⃣ upscale manually on 2D canvas with high-quality sampling
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -46,12 +47,14 @@ async function captureHighResSafari(node: HTMLElement, scale: number) {
   const canvas = document.createElement('canvas');
   canvas.width = rect.width * scale;
   canvas.height = rect.height * scale;
+
   const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.scale(scale, scale);
   ctx.drawImage(img, 0, 0);
   URL.revokeObjectURL(img.src);
 
-  // 3️⃣ convert canvas back to blob
   return await new Promise<Blob | null>((res) =>
     canvas.toBlob((b) => res(b), 'image/png', 1.0)
   );
@@ -71,9 +74,8 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
       const scale = getSafeScale();
       if (isIOS()) applyIOSTextFix();
 
-      // 🧩 use safe upscale on Safari
       const blob = isIOS()
-        ? await captureHighResSafari(node, scale)
+        ? await captureHighResIOS(node, scale)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -85,7 +87,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
 
       if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded', 'success', 2000);
+      showToast('✅ Downloaded in HD', 'success', 2000);
     } catch (err) {
       console.error(err);
       if (isIOS()) removeIOSTextFix();

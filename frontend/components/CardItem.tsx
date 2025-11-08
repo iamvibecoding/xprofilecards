@@ -19,40 +19,7 @@ import {
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
-// --- Safari high-res fix (same as DownloadCardButton) ---
-async function captureHighResSafari(node: HTMLElement, scale: number) {
-  const rect = node.getBoundingClientRect();
-
-  // 1️⃣ capture normal-resolution
-  const baseBlob = await domToBlob(node, {
-    ...buildOptions('image/png', 1),
-    width: rect.width,
-    height: rect.height,
-  });
-  if (!baseBlob) throw new Error('Base capture failed');
-
-  // 2️⃣ upscale via 2D canvas
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = URL.createObjectURL(baseBlob);
-  });
-
-  const canvas = document.createElement('canvas');
-  canvas.width = rect.width * scale;
-  canvas.height = rect.height * scale;
-  const ctx = canvas.getContext('2d')!;
-  ctx.scale(scale, scale);
-  ctx.drawImage(img, 0, 0);
-  URL.revokeObjectURL(img.src);
-
-  return await new Promise<Blob | null>((res) =>
-    canvas.toBlob((b) => res(b), 'image/png', 1.0)
-  );
-}
-
-// --- Viral captions ---
+// ------------------- Viral Text -------------------
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
@@ -65,6 +32,41 @@ function getRandomViralMessage() {
   return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 }
 
+// ------------------- Helper: iOS HD Capture -------------------
+async function captureHighResIOS(node: HTMLElement, scale: number) {
+  const rect = node.getBoundingClientRect();
+
+  const baseBlob = await domToBlob(node, {
+    ...buildOptions('image/png', 1),
+    width: rect.width,
+    height: rect.height,
+  });
+  if (!baseBlob) throw new Error('Base capture failed');
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = URL.createObjectURL(baseBlob);
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = rect.width * scale;
+  canvas.height = rect.height * scale;
+
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(img.src);
+
+  return await new Promise<Blob | null>((res) =>
+    canvas.toBlob((b) => res(b), 'image/png', 1.0)
+  );
+}
+
+// ------------------- UI -------------------
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -76,6 +78,7 @@ interface CardItemProps {
   theme: Theme;
 }
 
+// ------------------- Main Component -------------------
 export function CardItem({ data, theme }: CardItemProps) {
   const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
@@ -93,15 +96,14 @@ export function CardItem({ data, theme }: CardItemProps) {
       await waitForFonts();
       if (isIOS()) applyIOSTextFix();
 
-      const rect = node.getBoundingClientRect();
       const scale = getSafeScale();
-
       const blob = isIOS()
-        ? await captureHighResSafari(node, scale)
+        ? await captureHighResIOS(node, scale)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
-            width: rect.width * scale,
-            height: rect.height * scale,
+            width: node.offsetWidth * scale,
+            height: node.offsetHeight * scale,
+            style: { transform: 'none', zoom: scale },
           });
 
       if (isIOS()) removeIOSTextFix();
@@ -109,16 +111,30 @@ export function CardItem({ data, theme }: CardItemProps) {
 
       const filename = makeFilename(baseName, 'png');
 
-      // Clipboard copy (non-blocking)
       try {
         if (await copyBlob(blob))
           showToast('📋 Copied to clipboard', 'success', 1200);
       } catch {}
 
-      // Save/share file
-      await saveBlob(blob, filename, { useShare: true });
+      // --- Native Share (iOS "Save to Photos") ---
+      if (navigator.canShare?.({ files: [new File([blob], filename)] })) {
+        try {
+          await navigator.share({
+            files: [new File([blob], filename)],
+            title: 'My X Profile Card',
+            text: getRandomViralMessage(),
+          });
+          showToast('📸 Saved to Photos', 'success', 1500);
+        } catch (err: any) {
+          if (err?.name !== 'AbortError')
+            console.warn('Share failed:', err);
+        }
+      } else {
+        await saveBlob(blob, filename, { useShare: false });
+        showToast('💾 Saved image', 'success', 1200);
+      }
 
-      // --- X share intent ---
+      // --- Open X (App first, fallback to Web) ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
@@ -127,18 +143,13 @@ export function CardItem({ data, theme }: CardItemProps) {
         const start = Date.now();
         window.location.href = appLink;
         setTimeout(() => {
-          if (Date.now() - start < 1500) {
-            window.open(
-              webLink,
-              '_blank',
-              'width=550,height=700,menubar=no,toolbar=no'
-            );
-          }
+          if (Date.now() - start < 1500)
+            window.open(webLink, '_blank');
         }, 1500);
       };
 
       showToast('✨ Opening X…', 'success', 800);
-      if (isIOS()) openXApp(); // trusted gesture
+      if (isIOS()) openXApp();
       else requestAnimationFrame(openXApp);
     } catch (e) {
       console.error(e);
