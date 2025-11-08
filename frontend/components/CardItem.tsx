@@ -17,16 +17,11 @@ import type { ProfileData } from '@/app/page';
 
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
-  
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
-  
   "This hits different.\n\nMy new X card looks like something straight out of a design keynote.\n\nhttps://xprofilecards.com",
-  
   "Small detail. Big difference.\n\nTurned my X profile into a brand with one click.\n\nhttps://xprofilecards.com",
-  
-  "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com"
+  "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com",
 ];
-
 
 function getRandomViralMessage(): string {
   return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
@@ -56,7 +51,7 @@ export function CardItem({ data, theme }: CardItemProps) {
     setSharing(true);
 
     try {
-      showToast('Rendering ...', 'loading', 1000);
+      showToast('Rendering...', 'loading', 800);
       await waitForFonts();
 
       const rect = node.getBoundingClientRect();
@@ -71,30 +66,53 @@ export function CardItem({ data, theme }: CardItemProps) {
 
       const filename = makeFilename(baseName, 'png');
 
-      let copied = false;
+      // Copy to clipboard
       try {
-        copied = await copyBlob(blob);
-        if (copied) showToast('📋 Copied to clipboard', 'success', 1200);
+        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
       } catch {}
 
-      await saveBlob(blob, filename, { useShare: true });
-      showToast('💾 Saved image', 'success', 1200);
+      // iOS native share (Save to Photos)
+      if (navigator.canShare?.({ files: [new File([blob], filename)] })) {
+        try {
+          await navigator.share({
+            files: [new File([blob], filename)],
+            title: 'My X Profile Card',
+            text: getRandomViralMessage(),
+          });
+          showToast('📸 Saved to Photos', 'success', 1200);
+        } catch (err: any) {
+          if (err?.name !== 'AbortError') console.warn('Share failed:', err);
+        }
+      } else {
+        await saveBlob(blob, filename, { useShare: false });
+        showToast('💾 Saved image', 'success', 1200);
+      }
 
+      // --- safari-safe app detection (no double launch) ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
-      const delay = 1400;
+
+      const timeout = 1500;
       const start = Date.now();
 
       showToast('✨ Opening X…', 'success', 1000);
       window.location.href = appLink;
+
+      // Safari-safe detection: skip fallback if JS pause > ~2s
       setTimeout(() => {
-        if (Date.now() - start < delay + 200)
-          window.open(webLink, '_blank', 'width=550,height=700,menubar=no,toolbar=no');
-      }, delay);
-    } catch (e) {
-      console.error(e);
-      showToast('❌ Share failed', 'error', 2000);
+        const elapsed = Date.now() - start;
+        if (elapsed < timeout + 200) {
+          window.open(
+            webLink,
+            '_blank',
+            'width=550,height=700,menubar=no,toolbar=no'
+          );
+        }
+      }, timeout);
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Share failed', 'error', 1800);
     } finally {
       setSharing(false);
     }
