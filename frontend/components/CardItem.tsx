@@ -19,7 +19,7 @@ import {
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
-// ------------------- Viral Text -------------------
+// ---------- Viral Messages ----------
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
@@ -28,14 +28,13 @@ const VIRAL_MESSAGES = [
   "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com",
 ];
 
-function getRandomViralMessage() {
-  return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
-}
+const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 
-// ------------------- Helper: iOS HD Capture -------------------
+// ---------- iOS HD Capture ----------
 async function captureHighResIOS(node: HTMLElement, scale: number) {
   const rect = node.getBoundingClientRect();
 
+  // Capture at 1× to avoid Safari font shrink / black background issues
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -43,6 +42,7 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
+  // Load image for manual upscaling
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -53,6 +53,8 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
   const canvas = document.createElement('canvas');
   canvas.width = rect.width * scale;
   canvas.height = rect.height * scale;
+  // @ts-ignore
+  if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
 
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = true;
@@ -61,25 +63,37 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
   ctx.drawImage(img, 0, 0);
   URL.revokeObjectURL(img.src);
 
-  return await new Promise<Blob | null>((res) =>
-    canvas.toBlob((b) => res(b), 'image/png', 1.0)
-  );
+  // Convert to Blob (with fallback for Safari)
+  return await new Promise<Blob>((resolve, reject) => {
+    try {
+      canvas.toBlob(
+        (b) => {
+          if (b) resolve(b);
+          else reject(new Error('Canvas export failed'));
+        },
+        'image/png',
+        1.0
+      );
+    } catch {
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const byte = atob(dataUrl.split(',')[1]);
+      const buf = new ArrayBuffer(byte.length);
+      const arr = new Uint8Array(buf);
+      for (let i = 0; i < byte.length; i++) arr[i] = byte.charCodeAt(i);
+      resolve(new Blob([buf], { type: 'image/png' }));
+    }
+  });
 }
 
-// ------------------- UI -------------------
+// ---------- X Logo ----------
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
 
-interface CardItemProps {
-  data: ProfileData;
-  theme: Theme;
-}
-
-// ------------------- Main Component -------------------
-export function CardItem({ data, theme }: CardItemProps) {
+// ---------- Main Component ----------
+export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
   const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -96,7 +110,7 @@ export function CardItem({ data, theme }: CardItemProps) {
       await waitForFonts();
       if (isIOS()) applyIOSTextFix();
 
-      const scale = getSafeScale();
+      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 1.5), 8);
       const blob = isIOS()
         ? await captureHighResIOS(node, scale)
         : await domToBlob(node, {
@@ -110,49 +124,34 @@ export function CardItem({ data, theme }: CardItemProps) {
       if (!blob) throw new Error('Image generation failed');
 
       const filename = makeFilename(baseName, 'png');
+      const viral = pickMsg();
 
+      // Copy to clipboard (non-blocking)
       try {
-        if (await copyBlob(blob))
-          showToast('📋 Copied to clipboard', 'success', 1200);
+        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
       } catch {}
 
-      // --- Native Share (iOS "Save to Photos") ---
-      if (navigator.canShare?.({ files: [new File([blob], filename)] })) {
-        try {
-          await navigator.share({
-            files: [new File([blob], filename)],
-            title: 'My X Profile Card',
-            text: getRandomViralMessage(),
-          });
-          showToast('📸 Saved to Photos', 'success', 1500);
-        } catch (err: any) {
-          if (err?.name !== 'AbortError')
-            console.warn('Share failed:', err);
-        }
+      // Native iOS share — Save to Photos or AirDrop
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My X Profile Card',
+          text: viral,
+        });
+        showToast('📸 Saved to Photos', 'success', 1600);
       } else {
         await saveBlob(blob, filename, { useShare: false });
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- Open X (App first, fallback to Web) ---
-      const text = encodeURIComponent(getRandomViralMessage());
-      const appLink = `twitter://post?message=${text}`;
-      const webLink = `https://x.com/intent/tweet?text=${text}`;
-
-      const openXApp = () => {
-        const start = Date.now();
-        window.location.href = appLink;
-        setTimeout(() => {
-          if (Date.now() - start < 1500)
-            window.open(webLink, '_blank');
-        }, 1500);
-      };
-
-      showToast('✨ Opening X…', 'success', 800);
-      if (isIOS()) openXApp();
-      else requestAnimationFrame(openXApp);
-    } catch (e) {
-      console.error(e);
+      // --- Open X app only ---
+      const encoded = encodeURIComponent(viral);
+      const appLink = `twitter://post?message=${encoded}`;
+      showToast('✨ Opening X App…', 'success', 900);
+      window.location.href = appLink;
+    } catch (err) {
+      console.error(err);
       showToast('❌ Share failed', 'error', 2000);
     } finally {
       if (isIOS()) removeIOSTextFix();
@@ -170,7 +169,6 @@ export function CardItem({ data, theme }: CardItemProps) {
           onClick={handleShare}
           disabled={sharing}
           className="flex-1 m-1 ml-0 py-3 bg-black text-white rounded-full text-sm font-bold shadow-md hover:bg-gray-900 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-          title="Copy, save, and post on X"
         >
           <XLogo className="w-4 h-4" />
           {sharing ? 'Preparing…' : 'Share to X'}
