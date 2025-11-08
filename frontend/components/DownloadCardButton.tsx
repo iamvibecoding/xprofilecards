@@ -14,10 +14,6 @@ import {
 } from '@/lib/capture';
 import { domToBlob } from 'modern-screenshot';
 
-/**
- * Button component for exporting profile cards in Ultra-HD,
- * designed to work perfectly across iOS Safari, Chrome, and desktop browsers.
- */
 interface DownloadCardButtonProps {
   targetRef: React.RefObject<HTMLDivElement>;
   filename: string;
@@ -31,36 +27,32 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering Ultra-HD image...', 'loading', 1000);
+      showToast('Rendering Ultra-HD…', 'loading', 900);
       await waitForFonts();
 
       const scale = Math.min(getSafeScale(), 6);
-      let blob: Blob | null = null;
+      let blob: Blob | null;
 
       if (isIOS()) {
-        // iOS: Use advanced raster + manual 4× redraw
+        // iOS path: 1× snapshot → true Hi-DPI redraw
         blob = await captureIOSUltraHD(node);
       } else {
-        // Desktop & Android: native modern-screenshot 4×
+        // Desktop / Android: direct 4–6× capture via modern-screenshot
         const rect = node.getBoundingClientRect();
         blob = await domToBlob(node, {
           ...buildOptions('image/png', scale),
-          width: rect.width * scale,
-          height: rect.height * scale,
-          style: {
-            transform: 'none',
-            zoom: scale,
-          },
+          width: Math.round(rect.width * scale),
+          height: Math.round(rect.height * scale),
+          style: { transform: 'none', zoom: scale },
         });
       }
 
       if (!blob) throw new Error('Image generation failed.');
-
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded in 4× HD quality', 'success', 1800);
-    } catch (err) {
-      console.error('Download error:', err);
-      showToast('❌ Export failed', 'error', 2200);
+      showToast('✅ Downloaded in razor-sharp quality', 'success', 1600);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Export failed', 'error', 1800);
     }
   };
 
