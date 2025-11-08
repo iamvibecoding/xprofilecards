@@ -11,6 +11,7 @@ import {
   makeFilename,
   saveBlob,
   waitForFonts,
+  getSafeScale,
 } from '@/lib/capture';
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
@@ -55,15 +56,15 @@ export function CardItem({ data, theme }: CardItemProps) {
       await waitForFonts();
 
       const rect = node.getBoundingClientRect();
-      const scale = 8;
+      const scale = getSafeScale();
+
       const blob = await domToBlob(node, {
         ...buildOptions('image/png', scale),
         width: rect.width * scale,
         height: rect.height * scale,
-        style: { transform: 'none', zoom: scale },
       });
-      if (!blob) throw new Error('Image generation failed');
 
+      if (!blob) throw new Error('Image generation failed');
       const filename = makeFilename(baseName, 'png');
 
       // Copy to clipboard
@@ -88,7 +89,7 @@ export function CardItem({ data, theme }: CardItemProps) {
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- safari-safe app detection (no double launch) ---
+      // --- Safari-safe deep link detection ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
@@ -99,7 +100,7 @@ export function CardItem({ data, theme }: CardItemProps) {
       showToast('✨ Opening X…', 'success', 1000);
       window.location.href = appLink;
 
-      // Safari-safe detection: skip fallback if JS pause > ~2s
+      // Safari-safe detection: skip fallback if JS pauses (app opened)
       setTimeout(() => {
         const elapsed = Date.now() - start;
         if (elapsed < timeout + 200) {

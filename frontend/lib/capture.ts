@@ -17,10 +17,17 @@ export function makeFilename(base: string, ext = 'png') {
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-export function buildOptions(type: ExportType, pixelRatio = 8) {
+/** normalized scale that respects devicePixelRatio */
+export function getSafeScale() {
+  const dpr = window.devicePixelRatio || 1;
+  const base = 6 / dpr; // ~6x logical scale → ~18x physical on DPR3
+  return clamp(base, 3, 6);
+}
+
+export function buildOptions(type: ExportType, pixelRatio = 6) {
   return {
     type,
-    pixelRatio: clamp(pixelRatio, 6, 8),
+    pixelRatio: clamp(pixelRatio, 4, 8),
     backgroundColor: null,
     skipAutoScale: true,
     useScaleTransform: false,
@@ -29,9 +36,8 @@ export function buildOptions(type: ExportType, pixelRatio = 8) {
     style: {
       transform: 'none',
       zoom: 1,
-      willChange: 'auto',
+      fontSize: '100%',
       imageRendering: 'crisp-edges',
-      backgroundBlendMode: 'normal',
       '-webkit-font-smoothing': 'antialiased',
     },
   };
