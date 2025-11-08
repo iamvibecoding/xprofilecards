@@ -17,28 +17,36 @@ export function makeFilename(base: string, ext = 'png') {
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-/** normalized scale that respects devicePixelRatio */
+/**
+ * Normalize capture scale so text doesn’t shrink on high-DPR screens
+ */
 export function getSafeScale() {
   const dpr = window.devicePixelRatio || 1;
-  const base = 6 / dpr; // ~6x logical scale → ~18x physical on DPR3
-  return clamp(base, 3, 6);
+  // Safari over-scales fonts when DPR > 2, so correct it
+  const base = 4;
+  const corrected = base / Math.min(dpr, 2);
+  return clamp(corrected, 2, 5);
 }
 
-export function buildOptions(type: ExportType, pixelRatio = 6) {
+export function buildOptions(type: ExportType, pixelRatio = 4) {
   return {
     type,
-    pixelRatio: clamp(pixelRatio, 4, 8),
+    pixelRatio,
     backgroundColor: null,
     skipAutoScale: true,
     useScaleTransform: false,
     crossOrigin: 'anonymous' as const,
-    quality: type === 'image/jpeg' ? 0.99 : undefined,
+    quality: type === 'image/jpeg' ? 0.98 : undefined,
     style: {
-      transform: 'none',
+      transform: 'scale(1)',
       zoom: 1,
-      fontSize: '100%',
-      imageRendering: 'crisp-edges',
+      fontSize: 'calc(1rem * 1.0)',
+      lineHeight: 'normal',
+      letterSpacing: 'normal',
+      textRendering: 'geometricPrecision',
+      '-webkit-text-size-adjust': '100%',
       '-webkit-font-smoothing': 'antialiased',
+      imageRendering: 'crisp-edges',
     },
   };
 }

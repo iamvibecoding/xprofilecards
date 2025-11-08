@@ -58,11 +58,21 @@ export function CardItem({ data, theme }: CardItemProps) {
       const rect = node.getBoundingClientRect();
       const scale = getSafeScale();
 
+      // temporarily normalize layout scale for Safari / mobile
+      const originalTransform = node.style.transform;
+      const originalZoom = node.style.zoom;
+      node.style.transform = 'none';
+      node.style.zoom = '1';
+
       const blob = await domToBlob(node, {
         ...buildOptions('image/png', scale),
         width: rect.width * scale,
         height: rect.height * scale,
       });
+
+      // restore after capture
+      node.style.transform = originalTransform;
+      node.style.zoom = originalZoom;
 
       if (!blob) throw new Error('Image generation failed');
       const filename = makeFilename(baseName, 'png');
@@ -89,7 +99,7 @@ export function CardItem({ data, theme }: CardItemProps) {
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- Safari-safe deep link detection ---
+      // --- Safari-safe deep-link detection (no double launch) ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
@@ -100,7 +110,6 @@ export function CardItem({ data, theme }: CardItemProps) {
       showToast('✨ Opening X…', 'success', 1000);
       window.location.href = appLink;
 
-      // Safari-safe detection: skip fallback if JS pauses (app opened)
       setTimeout(() => {
         const elapsed = Date.now() - start;
         if (elapsed < timeout + 200) {
