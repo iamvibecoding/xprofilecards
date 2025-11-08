@@ -19,7 +19,6 @@ import {
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
-// ---------- Viral Messages ----------
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
@@ -30,11 +29,11 @@ const VIRAL_MESSAGES = [
 
 const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 
-// ---------- iOS HD Capture ----------
-async function captureHighResIOS(node: HTMLElement, scale: number) {
+// --- Improved iOS high-fidelity capture ---
+async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
   const rect = node.getBoundingClientRect();
 
-  // Capture at 1× to avoid Safari font shrink / black background issues
+  // 1️⃣ Capture low-DPI base (fonts correct)
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -42,7 +41,7 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // Load image for manual upscaling
+  // 2️⃣ Upscale manually using a canvas that iOS respects
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -50,53 +49,41 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
     el.src = URL.createObjectURL(baseBlob);
   });
 
+  const upscale = Math.min(scale, 5); // limit for iOS memory
   const canvas = document.createElement('canvas');
-  canvas.width = rect.width * scale;
-  canvas.height = rect.height * scale;
+  canvas.width = rect.width * upscale;
+  canvas.height = rect.height * upscale;
   // @ts-ignore
   if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
 
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d', {
+    alpha: true,
+    willReadFrequently: false,
+  })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.scale(scale, scale);
+  ctx.scale(upscale, upscale);
   ctx.drawImage(img, 0, 0);
   URL.revokeObjectURL(img.src);
 
-  // Convert to Blob (with fallback for Safari)
   return await new Promise<Blob>((resolve, reject) => {
     try {
-      canvas.toBlob(
-        (b) => {
-          if (b) resolve(b);
-          else reject(new Error('Canvas export failed'));
-        },
-        'image/png',
-        1.0
-      );
+      canvas.toBlob((b) => (b ? resolve(b) : reject('Failed to export')), 'image/png', 1);
     } catch {
-      const dataUrl = canvas.toDataURL('image/png', 1.0);
-      const byte = atob(dataUrl.split(',')[1]);
-      const buf = new ArrayBuffer(byte.length);
-      const arr = new Uint8Array(buf);
-      for (let i = 0; i < byte.length; i++) arr[i] = byte.charCodeAt(i);
-      resolve(new Blob([buf], { type: 'image/png' }));
+      reject('Canvas export failed');
     }
   });
 }
 
-// ---------- X Logo ----------
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
 
-// ---------- Main Component ----------
 export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
   const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
-
   const cleanHandle = data.handle?.replace(/[@\s]/g, '') || 'card';
   const baseName = `${Date.now()}-${cleanHandle}-${theme.id}`;
 
@@ -110,9 +97,9 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
       await waitForFonts();
       if (isIOS()) applyIOSTextFix();
 
-      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 1.5), 8);
+      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       const blob = isIOS()
-        ? await captureHighResIOS(node, scale)
+        ? await captureUltraHDIOS(node, scale)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -126,30 +113,38 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
       const filename = makeFilename(baseName, 'png');
       const viral = pickMsg();
 
-      // Copy to clipboard (non-blocking)
+      // Copy (non-blocking)
       try {
         if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
       } catch {}
 
-      // Native iOS share — Save to Photos or AirDrop
+      // --- Native Share / Save to Photos ---
       const file = new File([blob], filename, { type: 'image/png' });
+
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: 'My X Profile Card',
           text: viral,
         });
-        showToast('📸 Saved to Photos', 'success', 1600);
+        showToast('📸 Saved to Photos', 'success', 1800);
       } else {
         await saveBlob(blob, filename, { useShare: false });
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- Open X app only ---
-      const encoded = encodeURIComponent(viral);
-      const appLink = `twitter://post?message=${encoded}`;
+      // Wait for user to finish sharing before opening app
+      if (isIOS()) {
+        setTimeout(() => {
+          const encoded = encodeURIComponent(viral);
+          window.location.href = `twitter://post?message=${encoded}`;
+        }, 1200);
+      } else {
+        const encoded = encodeURIComponent(viral);
+        window.location.href = `twitter://post?message=${encoded}`;
+      }
+
       showToast('✨ Opening X App…', 'success', 900);
-      window.location.href = appLink;
     } catch (err) {
       console.error(err);
       showToast('❌ Share failed', 'error', 2000);

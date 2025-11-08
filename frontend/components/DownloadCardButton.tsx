@@ -15,20 +15,15 @@ import {
   removeIOSTextFix,
 } from '@/lib/capture';
 
-interface DownloadCardButtonProps {
-  targetRef: React.RefObject<HTMLDivElement>;
-  filename: string;
-}
-
 /**
- * --- iOS high-quality 2-pass capture ---
- * 1️⃣ Render once at 1× to avoid Safari text/font distortion.
- * 2️⃣ Manually upscale on a separate HD canvas using true-color sampling.
+ * --- Ultra HD iOS Fallback ---
+ * 1️⃣ Capture at 1× for accuracy
+ * 2️⃣ Manually upscale to 4× using canvas resampling
  */
-async function captureHighResIOS(node: HTMLElement, scale: number) {
+async function captureUltraHDIOS(node: HTMLElement, scale: number) {
   const rect = node.getBoundingClientRect();
 
-  // --- step 1: safe base capture (no Safari text shrink) ---
+  // Step 1: low-DPI capture (avoids iOS text/blur issues)
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -36,7 +31,7 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // --- step 2: upscale pass (sRGB for better contrast on iPhones) ---
+  // Step 2: upscale manually using color-managed canvas
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -44,61 +39,35 @@ async function captureHighResIOS(node: HTMLElement, scale: number) {
     el.src = URL.createObjectURL(baseBlob);
   });
 
+  const upscale = Math.min(scale, 4); // 4× max for iOS Retina
   const canvas = document.createElement('canvas');
-  canvas.width = rect.width * scale;
-  canvas.height = rect.height * scale;
+  canvas.width = rect.width * upscale;
+  canvas.height = rect.height * upscale;
   // @ts-ignore
   if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
 
-  const ctx = canvas.getContext('2d', { willReadFrequently: false })!;
+  const ctx = canvas.getContext('2d', {
+    alpha: true,
+    willReadFrequently: false,
+  })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-
-  // draw the image once per pixel to avoid aliasing
-  ctx.scale(scale, scale);
+  ctx.scale(upscale, upscale);
   ctx.drawImage(img, 0, 0);
   URL.revokeObjectURL(img.src);
 
-  // --- step 3: export blob (with fallback if toBlob fails) ---
   return await new Promise<Blob>((resolve, reject) => {
     try {
-      canvas.toBlob(
-        (b) => {
-          if (b) resolve(b);
-          else reject(new Error('Canvas export failed'));
-        },
-        'image/png',
-        1.0
-      );
+      canvas.toBlob((b) => (b ? resolve(b) : reject('Canvas export failed')), 'image/png', 1.0);
     } catch (err) {
-      try {
-        const dataUrl = canvas.toDataURL('image/png', 1.0);
-        const byteString = atob(dataUrl.split(',')[1]);
-        const mime = dataUrl.split(',')[0].split(':')[1].split(';')[0];
-        const arrayBuffer = new ArrayBuffer(byteString.length);
-        const intArray = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < byteString.length; i++) {
-          intArray[i] = byteString.charCodeAt(i);
-        }
-        resolve(new Blob([arrayBuffer], { type: mime }));
-      } catch (fallbackErr) {
-        reject(fallbackErr);
-      }
+      reject(err);
     }
   });
 }
 
-/**
- * --- Desktop/Universal capture ---
- * Standard modern-screenshot at hi-DPI scale.
- */
-async function captureUniversal(node: HTMLElement, scale: number) {
-  return await domToBlob(node, {
-    ...buildOptions('image/png', scale),
-    width: node.offsetWidth * scale,
-    height: node.offsetHeight * scale,
-    style: { transform: 'none', zoom: scale },
-  });
+interface DownloadCardButtonProps {
+  targetRef: React.RefObject<HTMLDivElement>;
+  filename: string;
 }
 
 export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonProps) {
@@ -109,24 +78,26 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering image...', 'loading', 800);
+      showToast('Rendering HD image...', 'loading', 1000);
       await waitForFonts();
 
-      const dpr = window.devicePixelRatio || 1;
-      const baseScale = getSafeScale();
-      const scale = Math.min(baseScale * dpr, 8); // hard-limit to avoid memory blowout
-
+      const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       if (isIOS()) applyIOSTextFix();
 
       const blob = isIOS()
-        ? await captureHighResIOS(node, scale)
-        : await captureUniversal(node, scale);
+        ? await captureUltraHDIOS(node, 4) // forced 4× retina quality for iOS
+        : await domToBlob(node, {
+            ...buildOptions('image/png', scale),
+            width: node.offsetWidth * scale,
+            height: node.offsetHeight * scale,
+            style: { transform: 'none', zoom: scale },
+          });
 
       if (isIOS()) removeIOSTextFix();
 
       if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded in HD', 'success', 1600);
+      showToast('✅ Downloaded in HD (4×)', 'success', 1800);
     } catch (err) {
       console.error(err);
       if (isIOS()) removeIOSTextFix();
