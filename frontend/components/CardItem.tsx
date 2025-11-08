@@ -19,7 +19,6 @@ import {
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
-// ---------- Viral Messages ----------
 const VIRAL_MESSAGES = [
   "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
   "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
@@ -30,33 +29,11 @@ const VIRAL_MESSAGES = [
 
 const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 
-// --- Utility: Preload images as Blob URLs ---
-async function preloadImage(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
-  try {
-    const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch {
-    return url;
-  }
-}
-
-// --- iOS Ultra HD Capture (safe with preloaded images) ---
+// --- Improved iOS high-fidelity capture ---
 async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
-  // Step 1: Preload all <img> elements to local Blob URLs
-  const imgEls = Array.from(node.querySelectorAll('img'));
-  const restoreMap: Record<string, string> = {};
-  for (const img of imgEls) {
-    const src = img.getAttribute('src');
-    if (!src) continue;
-    const safeSrc = await preloadImage(src);
-    restoreMap[safeSrc] = src;
-    img.setAttribute('src', safeSrc);
-  }
-
-  // Step 2: Capture at 1× to avoid text shrink and alpha loss
   const rect = node.getBoundingClientRect();
+
+  // 1️⃣ Capture low-DPI base (fonts correct)
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -64,7 +41,7 @@ async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // Step 3: Upscale manually to 4× for retina clarity
+  // 2️⃣ Upscale manually using a canvas that iOS respects
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -72,46 +49,41 @@ async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
     el.src = URL.createObjectURL(baseBlob);
   });
 
-  const upscale = Math.min(scale, 4);
+  const upscale = Math.min(scale, 5); // limit for iOS memory
   const canvas = document.createElement('canvas');
   canvas.width = rect.width * upscale;
   canvas.height = rect.height * upscale;
   // @ts-ignore
   if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
 
-  const ctx = canvas.getContext('2d', { alpha: true })!;
+  const ctx = canvas.getContext('2d', {
+    alpha: true,
+    willReadFrequently: false,
+  })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.scale(upscale, upscale);
   ctx.drawImage(img, 0, 0);
-
-  // Step 4: Cleanup temp URLs
   URL.revokeObjectURL(img.src);
-  for (const [safe, orig] of Object.entries(restoreMap)) {
-    imgEls.forEach((img) => {
-      if (img.getAttribute('src') === safe) img.setAttribute('src', orig);
-    });
-    URL.revokeObjectURL(safe);
-  }
 
-  // Step 5: Export final blob
   return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject('Export failed')), 'image/png', 1.0);
+    try {
+      canvas.toBlob((b) => (b ? resolve(b) : reject('Failed to export')), 'image/png', 1);
+    } catch {
+      reject('Canvas export failed');
+    }
   });
 }
 
-// --- X Logo ---
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
 
-// --- Main Component ---
 export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
   const cardRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
-
   const cleanHandle = data.handle?.replace(/[@\s]/g, '') || 'card';
   const baseName = `${Date.now()}-${cleanHandle}-${theme.id}`;
 
@@ -125,10 +97,9 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
       await waitForFonts();
       if (isIOS()) applyIOSTextFix();
 
-      // Capture with full background safety
       const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       const blob = isIOS()
-        ? await captureUltraHDIOS(node, 4)
+        ? await captureUltraHDIOS(node, scale)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -142,31 +113,38 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
       const filename = makeFilename(baseName, 'png');
       const viral = pickMsg();
 
+      // Copy (non-blocking)
       try {
         if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
       } catch {}
 
-      // --- Native iOS "Save to Photos" flow ---
+      // --- Native Share / Save to Photos ---
       const file = new File([blob], filename, { type: 'image/png' });
+
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: 'My X Profile Card',
           text: viral,
         });
-        showToast('📸 Saved to Photos', 'success', 1600);
+        showToast('📸 Saved to Photos', 'success', 1800);
       } else {
         await saveBlob(blob, filename, { useShare: false });
         showToast('💾 Saved image', 'success', 1200);
       }
 
-      // --- Launch X app only (no web fallback) ---
-      const encoded = encodeURIComponent(viral);
-      setTimeout(() => {
+      // Wait for user to finish sharing before opening app
+      if (isIOS()) {
+        setTimeout(() => {
+          const encoded = encodeURIComponent(viral);
+          window.location.href = `twitter://post?message=${encoded}`;
+        }, 1200);
+      } else {
+        const encoded = encodeURIComponent(viral);
         window.location.href = `twitter://post?message=${encoded}`;
-      }, 1000);
+      }
 
-      showToast('✨ Opening X App…', 'success', 800);
+      showToast('✨ Opening X App…', 'success', 900);
     } catch (err) {
       console.error(err);
       showToast('❌ Share failed', 'error', 2000);
