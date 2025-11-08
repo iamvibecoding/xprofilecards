@@ -250,17 +250,17 @@ export const themes: Theme[] = [
     `,
   },
   {
-    id: 'gradient-border',
-    name: 'Gradient Border',
+    id: 'fade',
+    name: 'Fade',
     image: '/themes/city.png',
     textColor: 'text-slate-100',
     handleColor: 'text-slate-200',
     statColor: 'text-slate-200',
     cardClassName: `
-      rounded-2xl bg-slate-900 p-[1px]
+      rounded-2xl p-[1px]
       before:content-[''] before:absolute before:inset-0 before:rounded-2xl
-      before:bg-gradient-to-r before:from-fuchsia-500 before:to-cyan-400
-      after:content-[''] after:absolute after:inset-[1px] after:rounded-[14px] after:bg-slate-900
+      before:bg-gradient-to-r before:from-fuchsia-500
+      after:content-[''] after:absolute after:inset-[1px] after:rounded-[14px] 
       shadow-xl
       [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
     `,
