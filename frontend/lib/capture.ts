@@ -1,10 +1,11 @@
 export type ExportType = 'image/png' | 'image/jpeg';
 
-// --- Core helpers ---
+// Clamp helper
 export function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+// Ensure web fonts ready
 export async function waitForFonts() {
   try {
     const fonts = (document as any).fonts;
@@ -13,61 +14,60 @@ export async function waitForFonts() {
   } catch {}
 }
 
+// Sanitize filename
 export function makeFilename(base: string, ext = 'png') {
   const safe = (base || 'card').replace(/[^\w.-]+/g, '-').toLowerCase();
   return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
 }
 
-// --- Safari detection ---
+// Detect iOS
 export function isIOS() {
   return (
     typeof navigator !== 'undefined' &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    !window.MSStream
+    /iPad|iPhone|iPod/.test(navigator.userAgent)
   );
 }
 
-// --- Dynamic iOS text shrink fix ---
-let iosFontFixStyle: HTMLStyleElement | null = null;
+// 🧩 Fix text shrink on iOS during capture
+let iosFixStyle: HTMLStyleElement | null = null;
 
-export function applyIOSFontFix() {
+export function applyIOSTextFix() {
   if (!isIOS()) return;
-  if (iosFontFixStyle) return; // already added
+  if (iosFixStyle) return;
 
-  iosFontFixStyle = document.createElement('style');
-  iosFontFixStyle.id = 'ios-font-fix';
-  iosFontFixStyle.textContent = `
+  iosFixStyle = document.createElement('style');
+  iosFixStyle.id = 'ios-text-fix';
+  iosFixStyle.textContent = `
     html, body, * {
-      -webkit-text-size-adjust: 100% !important;
-      text-size-adjust: 100% !important;
+      -webkit-text-size-adjust: none !important;
+      text-size-adjust: none !important;
       font-size: inherit !important;
       line-height: normal !important;
       letter-spacing: normal !important;
       text-rendering: geometricPrecision !important;
       -webkit-font-smoothing: antialiased !important;
-      zoom: 1 !important;
-      transform: scale(1) !important;
     }
   `;
-  document.head.appendChild(iosFontFixStyle);
+  document.head.appendChild(iosFixStyle);
 }
 
-export function removeIOSFontFix() {
-  if (iosFontFixStyle) {
-    iosFontFixStyle.remove();
-    iosFontFixStyle = null;
+export function removeIOSTextFix() {
+  if (iosFixStyle) {
+    iosFixStyle.remove();
+    iosFixStyle = null;
   }
 }
 
-// --- Scale + export options ---
+// Get safe scale for hi-dpi
 export function getSafeScale() {
   const dpr = window.devicePixelRatio || 1;
   const base = 4;
   const corrected = base / Math.min(dpr, 2);
-  return clamp(corrected, 2, 6);
+  return clamp(corrected, 2, 8);
 }
 
-export function buildOptions(type: ExportType, pixelRatio = 4) {
+// Capture config
+export function buildOptions(type: ExportType, pixelRatio = 6) {
   return {
     type,
     pixelRatio,
@@ -90,7 +90,7 @@ export function buildOptions(type: ExportType, pixelRatio = 4) {
   };
 }
 
-// --- File saving helpers ---
+// Save blob
 export async function saveBlob(blob: Blob, filename: string, opts?: { useShare?: boolean }) {
   const { useShare = false } = opts || {};
   const file = new File([blob], filename, { type: blob.type });
@@ -115,6 +115,7 @@ export async function saveBlob(blob: Blob, filename: string, opts?: { useShare?:
   URL.revokeObjectURL(url);
 }
 
+// Copy blob
 export async function copyBlob(blob: Blob) {
   if (!('ClipboardItem' in window) || !navigator.clipboard?.write) return false;
   try {

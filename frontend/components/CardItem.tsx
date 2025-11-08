@@ -12,8 +12,9 @@ import {
   saveBlob,
   waitForFonts,
   getSafeScale,
-  prepareSafariCapture,
-  cleanupSafariCapture,
+  isIOS,
+  applyIOSTextFix,
+  removeIOSTextFix,
 } from '@/lib/capture';
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
@@ -26,7 +27,7 @@ const VIRAL_MESSAGES = [
   "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com",
 ];
 
-function getRandomViralMessage(): string {
+function getRandomViralMessage() {
   return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 }
 
@@ -56,78 +57,50 @@ export function CardItem({ data, theme }: CardItemProps) {
     try {
       showToast('Rendering...', 'loading', 800);
       await waitForFonts();
+      if (isIOS()) applyIOSTextFix();
 
       const rect = node.getBoundingClientRect();
       const scale = getSafeScale();
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-      // iOS font scaling fix
-      if (isIOS) prepareSafariCapture(node);
-
-      const originalTransform = node.style.transform;
-      const originalZoom = node.style.zoom;
-      node.style.transform = 'none';
-      node.style.zoom = '1';
-
       const blob = await domToBlob(node, {
         ...buildOptions('image/png', scale),
         width: rect.width * scale,
         height: rect.height * scale,
       });
 
-      node.style.transform = originalTransform;
-      node.style.zoom = originalZoom;
-      if (isIOS) cleanupSafariCapture(node);
-
+      if (isIOS()) removeIOSTextFix();
       if (!blob) throw new Error('Image generation failed');
-      const filename = makeFilename(baseName, 'png');
 
-      // Copy to clipboard
+      const filename = makeFilename(baseName, 'png');
       try {
-        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
+        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1200);
       } catch {}
 
-      // Native iOS/Android share
-      if (navigator.canShare?.({ files: [new File([blob], filename)] })) {
-        try {
-          await navigator.share({
-            files: [new File([blob], filename)],
-            title: 'My X Profile Card',
-            text: getRandomViralMessage(),
-          });
-          showToast('📸 Saved to Photos', 'success', 1200);
-        } catch (err: any) {
-          if (err?.name !== 'AbortError') console.warn('Share failed:', err);
-        }
-      } else {
-        await saveBlob(blob, filename, { useShare: false });
-        showToast('💾 Saved image', 'success', 1200);
-      }
+      await saveBlob(blob, filename, { useShare: true });
 
-      // --- Safari-safe deep-link (no double launch) ---
+      // --- Open X ---
       const text = encodeURIComponent(getRandomViralMessage());
       const appLink = `twitter://post?message=${text}`;
       const webLink = `https://x.com/intent/tweet?text=${text}`;
-      const timeout = 1500;
-      const start = Date.now();
 
-      showToast('✨ Opening X…', 'success', 1000);
-      window.location.href = appLink;
+      const openXApp = () => {
+        const start = Date.now();
+        window.location.href = appLink;
+        setTimeout(() => {
+          if (Date.now() - start < 1500)
+            window.open(webLink, '_blank', 'width=550,height=700,menubar=no,toolbar=no');
+        }, 1500);
+      };
 
-      setTimeout(() => {
-        const elapsed = Date.now() - start;
-        if (elapsed < timeout + 200) {
-          window.open(
-            webLink,
-            '_blank',
-            'width=550,height=700,menubar=no,toolbar=no'
-          );
-        }
-      }, timeout);
-    } catch (err) {
-      console.error(err);
-      showToast('❌ Share failed', 'error', 1800);
+      showToast('✨ Opening X…', 'success', 800);
+
+      // Run inside a trusted gesture on iOS
+      if (isIOS()) openXApp();
+      else requestAnimationFrame(openXApp);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Share failed', 'error', 2000);
     } finally {
+      if (isIOS()) removeIOSTextFix();
       setSharing(false);
     }
   };
