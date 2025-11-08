@@ -15,15 +15,37 @@ import {
   removeIOSTextFix,
 } from '@/lib/capture';
 
-/**
- * --- Ultra HD iOS Fallback ---
- * 1️⃣ Capture at 1× for accuracy
- * 2️⃣ Manually upscale to 4× using canvas resampling
- */
-async function captureUltraHDIOS(node: HTMLElement, scale: number) {
-  const rect = node.getBoundingClientRect();
+/** Utility: preload image as a Blob URL to avoid CORS tainting */
+async function preloadImage(url: string): Promise<string> {
+  if (!url || url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return url;
+  }
+}
 
-  // Step 1: low-DPI capture (avoids iOS text/blur issues)
+/**
+ * --- iOS-safe Ultra HD capture ---
+ * Preloads background + avatar → captures at 1× → upscales 4×
+ */
+async function captureUltraHDIOS(node: HTMLElement, scale = 4) {
+  // Step 1: Preload all <img> elements to blob URLs (avoid CORS)
+  const imgEls = Array.from(node.querySelectorAll('img'));
+  const restoreMap: Record<string, string> = {};
+
+  for (const img of imgEls) {
+    const src = img.getAttribute('src');
+    if (!src) continue;
+    const safeSrc = await preloadImage(src);
+    restoreMap[safeSrc] = src;
+    img.setAttribute('src', safeSrc);
+  }
+
+  // Step 2: Capture low-DPI base for text accuracy
+  const rect = node.getBoundingClientRect();
   const baseBlob = await domToBlob(node, {
     ...buildOptions('image/png', 1),
     width: rect.width,
@@ -31,7 +53,7 @@ async function captureUltraHDIOS(node: HTMLElement, scale: number) {
   });
   if (!baseBlob) throw new Error('Base capture failed');
 
-  // Step 2: upscale manually using color-managed canvas
+  // Step 3: Upscale manually on a color-managed canvas
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -39,7 +61,7 @@ async function captureUltraHDIOS(node: HTMLElement, scale: number) {
     el.src = URL.createObjectURL(baseBlob);
   });
 
-  const upscale = Math.min(scale, 4); // 4× max for iOS Retina
+  const upscale = Math.min(scale, 4);
   const canvas = document.createElement('canvas');
   canvas.width = rect.width * upscale;
   canvas.height = rect.height * upscale;
@@ -54,14 +76,23 @@ async function captureUltraHDIOS(node: HTMLElement, scale: number) {
   ctx.imageSmoothingQuality = 'high';
   ctx.scale(upscale, upscale);
   ctx.drawImage(img, 0, 0);
-  URL.revokeObjectURL(img.src);
 
+  // Step 4: Clean up object URLs
+  URL.revokeObjectURL(img.src);
+  for (const [safe, orig] of Object.entries(restoreMap)) {
+    imgEls.forEach((img) => {
+      if (img.getAttribute('src') === safe) img.setAttribute('src', orig);
+    });
+    URL.revokeObjectURL(safe);
+  }
+
+  // Step 5: Return high-quality PNG blob
   return await new Promise<Blob>((resolve, reject) => {
-    try {
-      canvas.toBlob((b) => (b ? resolve(b) : reject('Canvas export failed')), 'image/png', 1.0);
-    } catch (err) {
-      reject(err);
-    }
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Canvas export failed'))),
+      'image/png',
+      1.0
+    );
   });
 }
 
@@ -78,14 +109,14 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
     if (!node) return;
 
     try {
-      showToast('Rendering HD image...', 'loading', 1000);
+      showToast('Rendering 4× HD image...', 'loading', 1000);
       await waitForFonts();
 
       const scale = Math.min(getSafeScale() * (window.devicePixelRatio || 2), 8);
       if (isIOS()) applyIOSTextFix();
 
       const blob = isIOS()
-        ? await captureUltraHDIOS(node, 4) // forced 4× retina quality for iOS
+        ? await captureUltraHDIOS(node, 4)
         : await domToBlob(node, {
             ...buildOptions('image/png', scale),
             width: node.offsetWidth * scale,
@@ -97,7 +128,7 @@ export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonPr
 
       if (!blob) throw new Error('Failed to capture image');
       await saveBlob(blob, makeFilename(filename, 'png'));
-      showToast('✅ Downloaded in HD (4×)', 'success', 1800);
+      showToast('✅ Downloaded 4× HD image', 'success', 2000);
     } catch (err) {
       console.error(err);
       if (isIOS()) removeIOSTextFix();
