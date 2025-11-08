@@ -4,19 +4,32 @@ import { useRef, useState, RefObject } from 'react';
 import { ProfileCardPreview } from '@/components/ProfileCardPreview';
 import { DownloadCardButton } from '@/components/DownloadCardButton';
 import { showToast } from '@/lib/toast';
-import { domToBlob as toBlob } from 'modern-screenshot';
+import { domToBlob } from 'modern-screenshot';
+import {
+  buildOptions,
+  copyBlob,
+  makeFilename,
+  saveBlob,
+  waitForFonts,
+} from '@/lib/capture';
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
 
-declare global {
-  interface Window {
-    ClipboardItem: typeof ClipboardItem;
-  }
-}
+const VIRAL_MESSAGES = [
+  "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
+  
+  "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
+  
+  "This hits different.\n\nMy new X card looks like something straight out of a design keynote.\n\nhttps://xprofilecards.com",
+  
+  "Small detail. Big difference.\n\nTurned my X profile into a brand with one click.\n\nhttps://xprofilecards.com",
+  
+  "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone’s switching → https://xprofilecards.com"
+];
 
-interface CardItemProps {
-  data: ProfileData;
-  theme: Theme;
+
+function getRandomViralMessage(): string {
+  return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 }
 
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
@@ -25,53 +38,9 @@ const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   </svg>
 );
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout: Image generation took too long')), timeoutMs)
-    ),
-  ]);
-}
-
-async function saveImageBlob(blob: Blob, filename: string): Promise<void> {
-  const file = new File([blob], filename, { type: blob.type });
-
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Save Card' });
-      return;
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') throw new Error('Save cancelled');
-    }
-  }
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-async function copyImageBlob(blob: Blob): Promise<void> {
-  if (!('ClipboardItem' in window) || !navigator.clipboard?.write)
-    throw new Error('Clipboard API not supported');
-
-  const item = new window.ClipboardItem({ [blob.type]: blob });
-  await navigator.clipboard.write([item]);
-}
-
-const VIRAL_MESSAGES = [
-  "Just dropped my X Profile Card — this thing looks unreal 🎨\n\n26+ handcrafted themes • instant export • no sign-up needed\n\nMake yours now → https://xprofilecards.com",
-  "Design that actually *feels* premium 🔥\n\nCreated my X Profile Card in seconds — 26+ beautiful themes and zero hassle.\n\nTry it free → https://xprofilecards.com",
-  "Your profile deserves a glow-up ✨\n\nX Profile Cards gives you 26+ stunning themes, instant previews, and one-click downloads.\n\nFree and fast → https://xprofilecards.com",
-];
-
-function getRandomViralMessage(): string {
-  return VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
+interface CardItemProps {
+  data: ProfileData;
+  theme: Theme;
 }
 
 export function CardItem({ data, theme }: CardItemProps) {
@@ -79,56 +48,53 @@ export function CardItem({ data, theme }: CardItemProps) {
   const [sharing, setSharing] = useState(false);
 
   const cleanHandle = data.handle?.replace(/[@\s]/g, '') || 'card';
-  const filename = `${Date.now()}-${cleanHandle}-${theme.id}.jpeg`;
+  const baseName = `${Date.now()}-${cleanHandle}-${theme.id}`;
 
-  const handleShare = async (): Promise<void> => {
-    if (!cardRef.current) return;
+  const handleShare = async () => {
+    const node = cardRef.current;
+    if (!node) return;
     setSharing(true);
-    showToast('⬇️ Generating image...', 'loading', 1000);
 
     try {
-      const blob = await withTimeout(
-        toBlob(cardRef.current, {
-          type: 'image/jpeg',
-          pixelRatio: 3,
-          backgroundColor: '#ffffff',
-          skipAutoScale: false,
-          crossOrigin: 'anonymous',
-        }),
-        8000
-      );
+      showToast('Rendering ultra-HD…', 'loading', 1000);
+      await waitForFonts();
 
+      const rect = node.getBoundingClientRect();
+      const scale = 8;
+      const blob = await domToBlob(node, {
+        ...buildOptions('image/png', scale),
+        width: rect.width * scale,
+        height: rect.height * scale,
+        style: { transform: 'none', zoom: scale },
+      });
       if (!blob) throw new Error('Image generation failed');
 
-      showToast('💾 Saving image...', 'loading', 1000);
-      await saveImageBlob(blob, filename);
+      const filename = makeFilename(baseName, 'png');
 
+      let copied = false;
       try {
-        await copyImageBlob(blob);
-        showToast('📋 Copied to clipboard!', 'success', 1200);
-      } catch {
-        showToast('⚠️ Clipboard unsupported, saved only', 'info', 1200);
-      }
+        copied = await copyBlob(blob);
+        if (copied) showToast('📋 Copied to clipboard', 'success', 1200);
+      } catch {}
 
-      const encodedText = encodeURIComponent(getRandomViralMessage());
-      const appLink = `twitter://post?message=${encodedText}`;
-      const webLink = `https://x.com/intent/tweet?text=${encodedText}`;
-      const timeout = 1500;
-      const now = Date.now();
+      await saveBlob(blob, filename, { useShare: true });
+      showToast('💾 Saved image', 'success', 1200);
 
-      showToast('✨ Opening X...', 'success', 1500);
+      const text = encodeURIComponent(getRandomViralMessage());
+      const appLink = `twitter://post?message=${text}`;
+      const webLink = `https://x.com/intent/tweet?text=${text}`;
+      const delay = 1400;
+      const start = Date.now();
+
+      showToast('✨ Opening X…', 'success', 1000);
       window.location.href = appLink;
-
       setTimeout(() => {
-        if (Date.now() - now < timeout + 200) {
+        if (Date.now() - start < delay + 200)
           window.open(webLink, '_blank', 'width=550,height=700,menubar=no,toolbar=no');
-        }
-      }, timeout);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg.includes('Timeout')) showToast('⏱️ Image generation timeout.', 'error', 1000);
-      else if (msg.includes('Save cancelled')) showToast('Save cancelled', 'info', 2000);
-      else showToast('❌ Share failed. Try download instead.', 'error', 3000);
+      }, delay);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Share failed', 'error', 2000);
     } finally {
       setSharing(false);
     }
@@ -137,17 +103,17 @@ export function CardItem({ data, theme }: CardItemProps) {
   return (
     <div className="bg-transparent w-full flex flex-col gap-4">
       <ProfileCardPreview ref={cardRef} data={data} theme={theme} />
-      <div className="bg-transparent flex gap-3 w-full justify-center">
-        <DownloadCardButton targetRef={cardRef} filename={filename} />
+      <div className="flex gap-3 w-full justify-center">
+        <DownloadCardButton targetRef={cardRef} filename={baseName} />
         <button
           type="button"
           onClick={handleShare}
           disabled={sharing}
           className="flex-1 m-1 ml-0 py-3 bg-black text-white rounded-full text-sm font-bold shadow-md hover:bg-gray-900 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-          title="Download image & open X to post"
+          title="Copy, save, and post on X"
         >
           <XLogo className="w-4 h-4" />
-          {sharing ? 'Downloading...' : 'Share to X'}
+          {sharing ? 'Preparing…' : 'Share to X'}
         </button>
       </div>
     </div>

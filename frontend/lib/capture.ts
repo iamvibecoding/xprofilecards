@@ -1,57 +1,77 @@
-'use client';
+export type ExportType = 'image/png' | 'image/jpeg';
 
-import { domToBlob as toBlob } from 'modern-screenshot';
+export function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
 
-/**
- * Downloads an HTML node as a PNG image.
- * Works across Safari, Chrome, Firefox, and iOS.
- */
-export async function downloadNodeAsPng(
-  node: HTMLElement,
-  filename = 'card.png',
-  pixelRatio = 2,
-  backgroundColor = 'transparent'
-): Promise<void> {
-  if (!node) throw new Error('Target node not found.');
+export async function waitForFonts() {
+  try {
+    const fonts = (document as any).fonts;
+    if (fonts?.ready) await fonts.ready;
+    else await new Promise((r) => setTimeout(r, 250));
+  } catch {}
+}
 
-  const blob = await toBlob(node, {
-    type: 'image/png',
-    pixelRatio,
-    backgroundColor,
-    skipAutoScale: false,
-    crossOrigin: 'anonymous',
-  });
+export function makeFilename(base: string, ext = 'png') {
+  const safe = (base || 'card').replace(/[^\w.-]+/g, '-').toLowerCase();
+  return safe.endsWith(`.${ext}`) ? safe : `${safe}.${ext}`;
+}
 
-  if (!blob) throw new Error('Failed to capture node as image.');
+export function buildOptions(type: ExportType, pixelRatio = 8) {
+  return {
+    type,
+    pixelRatio: clamp(pixelRatio, 6, 8),
+    backgroundColor: null,
+    skipAutoScale: true,
+    useScaleTransform: false,
+    crossOrigin: 'anonymous' as const,
+    quality: type === 'image/jpeg' ? 0.99 : undefined,
+    style: {
+      transform: 'none',
+      zoom: 1,
+      willChange: 'auto',
+      imageRendering: 'crisp-edges',
+      backgroundBlendMode: 'normal',
+      '-webkit-font-smoothing': 'antialiased',
+    },
+  };
+}
+
+export async function saveBlob(
+  blob: Blob,
+  filename: string,
+  opts?: { useShare?: boolean }
+) {
+  const { useShare = false } = opts || {};
+  const file = new File([blob], filename, { type: blob.type });
+
+  if (useShare && navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+    }
+  }
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  a.remove();
   URL.revokeObjectURL(url);
 }
 
-/**
- * Returns a PNG Blob of a DOM node (for sharing or upload).
- */
-export async function getNodeAsBlob(
-  node: HTMLElement,
-  pixelRatio = 2,
-  backgroundColor = 'transparent'
-): Promise<Blob> {
-  if (!node) throw new Error('Target node not found.');
-
-  const blob = await toBlob(node, {
-    type: 'image/png',
-    pixelRatio,
-    backgroundColor,
-    skipAutoScale: false,
-    crossOrigin: 'anonymous',
-  });
-
-  if (!blob) throw new Error('Image blob creation failed.');
-  return blob;
+export async function copyBlob(blob: Blob) {
+  if (!('ClipboardItem' in window) || !navigator.clipboard?.write) return false;
+  try {
+    const item = new (window as any).ClipboardItem({ [blob.type]: blob });
+    await navigator.clipboard.write([item]);
+    return true;
+  } catch {
+    return false;
+  }
 }

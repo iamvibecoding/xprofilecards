@@ -1,9 +1,15 @@
 'use client';
 
 import { useRef } from 'react';
-import { domToBlob as toBlob } from 'modern-screenshot';
+import { domToBlob } from 'modern-screenshot';
 import { Download } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import {
+  buildOptions,
+  makeFilename,
+  saveBlob,
+  waitForFonts,
+} from '@/lib/capture';
 
 interface DownloadCardButtonProps {
   targetRef: React.RefObject<HTMLDivElement>;
@@ -11,47 +17,40 @@ interface DownloadCardButtonProps {
 }
 
 export function DownloadCardButton({ targetRef, filename }: DownloadCardButtonProps) {
-  const downloadRef = useRef<HTMLButtonElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
-  const handleDownload = async (): Promise<void> => {
+  const handleDownload = async () => {
     const node = targetRef.current;
     if (!node) return;
 
     try {
-      showToast('Generating image...', 'loading', 2000);
+      showToast('Rendering ultra-HD image…', 'loading', 1000);
+      await waitForFonts();
 
-      const blob = await toBlob(node, {
-        type: 'image/jpeg',
-        pixelRatio: 3,
-        backgroundColor: '#ffffff',
-        skipAutoScale: false,
-        crossOrigin: 'anonymous',
+      const rect = node.getBoundingClientRect();
+      const scale = 8; // ← max quality
+      const blob = await domToBlob(node, {
+        ...buildOptions('image/png', scale),
+        width: rect.width * scale,
+        height: rect.height * scale,
+        style: { transform: 'none', zoom: scale },
       });
 
-      if (!blob) throw new Error('Failed to generate image.');
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showToast('✨ Downloaded successfully!', 'success', 2000);
-    } catch (error) {
-      console.error('Download error:', error);
-      showToast('❌ Download failed', 'error', 3000);
+      if (!blob) throw new Error('Failed to capture image');
+      await saveBlob(blob, makeFilename(filename, 'png'));
+      showToast('✅ Downloaded in ultra-HD quality', 'success', 2000);
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Export failed', 'error', 2200);
     }
   };
 
   return (
     <button
-      ref={downloadRef}
+      ref={btnRef}
       onClick={handleDownload}
       className="flex-1 m-1 mr-0 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all"
-      title="Download card as JPEG"
+      type="button"
     >
       <Download className="w-4 h-4" />
       Download
