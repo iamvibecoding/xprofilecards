@@ -44,9 +44,7 @@ export const metadata: Metadata = {
     'iamvibecoder',
     'siddhesh kamath',
   ],
-  alternates: {
-    canonical: 'https://xprofilecards.com',
-  },
+  alternates: { canonical: 'https://xprofilecards.com' },
   openGraph: {
     type: 'website',
     url: 'https://xprofilecards.com',
@@ -130,6 +128,7 @@ const jsonLd = {
         url: 'https://x.com/iamvibecoder',
       },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      // Optional rich snippet; keep truthful if you collect reviews
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '5',
@@ -169,15 +168,16 @@ export default function RootLayout({
           name="google-site-verification"
           content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo"
         />
+        <meta name="apple-mobile-web-app-title" content="X Profile Cards" />
 
         {/* Favicon & Icons */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#000000" />
 
-        {/* OG Fallback */}
+        {/* OG Fallbacks */}
         <meta
           property="og:image"
           content="https://xprofilecards.com/og-cover.png"
