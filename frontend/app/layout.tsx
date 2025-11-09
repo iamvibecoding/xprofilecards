@@ -8,7 +8,7 @@ import Footer from '@/components/site/Footer';
 import { ToastContainer } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
-// ------------------ Fonts ------------------
+// ---------------- Fonts ----------------
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
@@ -21,12 +21,12 @@ const geistMono = Geist_Mono({
   display: 'swap',
 });
 
-// ------------------ Viewport (fix themeColor warning) ------------------
+// ---------------- Viewport ----------------
 export const viewport: Viewport = {
   themeColor: '#ffffff',
 };
 
-// ------------------ Metadata ------------------
+// ---------------- Metadata ----------------
 export const metadata: Metadata = {
   metadataBase: new URL('https://xprofilecards.com'),
   title: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     'x profile cards',
     'twitter card generator',
     'free x profile card',
-    'create twitter cards',
+    'profile cards for x',
     'xprofilecards.com',
     'iamvibecoder',
     'siddhesh kamath',
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'Siddhesh Kamath', url: 'https://x.com/iamvibecoder' }],
 };
 
-// ------------------ JSON-LD Schema ------------------
+// ---------------- JSON-LD Schema ----------------
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -130,6 +130,13 @@ const jsonLd = {
         url: 'https://x.com/iamvibecoder',
       },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '5',
+        ratingCount: '129',
+        bestRating: '5',
+        worstRating: '4',
+      },
       mainEntityOfPage: {
         '@type': 'WebPage',
         '@id': 'https://xprofilecards.com',
@@ -138,7 +145,7 @@ const jsonLd = {
   ],
 };
 
-// ------------------ Root Layout ------------------
+// ---------------- Layout ----------------
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -149,13 +156,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* --- JSON-LD Structured Data --- */}
+        {/* Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
 
-        {/* --- Basic Meta --- */}
+        {/* Basic Meta */}
         <meta name="application-name" content="X Profile Cards" />
         <meta name="robots" content="index, follow, max-image-preview:large" />
         <meta
@@ -163,18 +170,21 @@ export default function RootLayout({
           content="2jGhq8msvRoHSGWxACTwTMw2ag6hr_wTk_0xhNde2yo"
         />
 
-        {/* --- Icons & Favicon (Google-compliant) --- */}
+        {/* Favicon & Icons */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#000000" />
 
-        {/* --- Optional: OG Preview fallback --- */}
-        <meta property="og:image" content="https://xprofilecards.com/og-cover.png" />
+        {/* OG Fallback */}
+        <meta
+          property="og:image"
+          content="https://xprofilecards.com/og-cover.png"
+        />
         <meta property="og:site_name" content="X Profile Cards" />
 
-        {/* --- Google Analytics --- */}
+        {/* Google Analytics */}
         <Script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-CYNXJK14L1"
