@@ -4,7 +4,7 @@ import { useRef, useState, RefObject } from 'react';
 import { ProfileCardPreview } from '@/components/ProfileCardPreview';
 import { DownloadCardButton } from '@/components/DownloadCardButton';
 import { showToast } from '@/lib/toast';
-import { domToBlob } from 'modern-screenshot';
+import { domToPng } from 'modern-screenshot';
 import {
   copyBlob,
   makeFilename,
@@ -48,16 +48,14 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
     await waitForFonts();
     await new Promise(r => setTimeout(r, 500));
 
-    const rect = node.getBoundingClientRect();
-    if (!rect.width || !rect.height) throw new Error('Card has no dimensions');
-
     if (isIOS()) applyIOSTextFix();
 
     try {
       const scale = getSafeScale();
       
-      const blob = await domToBlob(node, {
+      const dataUrl = await domToPng(node, {
         scale,
+        quality: 1,
         backgroundColor: null,
         style: {
           margin: '0',
@@ -65,17 +63,21 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
         },
       });
 
+      if (isIOS()) removeIOSTextFix();
+
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+
       if (!blob || blob.size === 0) {
         throw new Error('Generated empty image');
       }
 
       return blob;
     } catch (error: any) {
+      if (isIOS()) removeIOSTextFix();
       const msg = error?.message || 'Capture failed';
       console.error('Capture error:', msg);
       throw new Error(msg);
-    } finally {
-      if (isIOS()) removeIOSTextFix();
     }
   };
 
