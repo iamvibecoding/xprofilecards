@@ -1,18 +1,41 @@
-// capture.ts
 export type ExportType = 'image/png' | 'image/jpeg';
 
-export const isIOS = () =>
-  typeof navigator !== 'undefined' && /iP(hone|ad|od)/i.test(navigator.userAgent);
+export function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
 
-export const clamp = (n: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, n));
+export function isIOS() {
+  return (
+    typeof navigator !== 'undefined' &&
+    /iP(ad|hone|od)/.test(navigator.userAgent)
+  );
+}
+
+export function applyIOSTextFix() {
+  const el = document.documentElement;
+  el.style.webkitTextSizeAdjust = '100%';
+  el.style.textRendering = 'geometricPrecision';
+  el.style.webkitFontSmoothing = 'antialiased';
+  document.body.style.transform = 'scale(1)';
+  document.body.style.transformOrigin = 'top left';
+}
+
+export function removeIOSTextFix() {
+  const el = document.documentElement;
+  el.style.webkitTextSizeAdjust = '';
+  el.style.textRendering = '';
+  el.style.webkitFontSmoothing = '';
+  document.body.style.transform = '';
+  document.body.style.transformOrigin = '';
+}
 
 export async function waitForFonts() {
   try {
-    // @ts-ignore
-    if (document.fonts?.ready) await document.fonts.ready;
-  } catch {}
-  await new Promise((r) => setTimeout(r, 80));
+    const fonts = (document as any).fonts;
+    if (fonts?.ready) await fonts.ready;
+  } catch {
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }
 
 export function makeFilename(base: string, ext = 'png') {
@@ -21,25 +44,14 @@ export function makeFilename(base: string, ext = 'png') {
 }
 
 export function getSafeScale() {
-  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 2;
-  return clamp(Math.round(dpr * 2), 3, 6);
+  const dpr = window.devicePixelRatio || 1;
+  return clamp(dpr * 2, 2, 4);
 }
 
-export function buildOptions(type: ExportType, pixelRatio = 4) {
-  return {
-    type,
-    pixelRatio,
-    backgroundColor: null,
-    skipAutoScale: true,
-    useScaleTransform: false,
-    crossOrigin: 'anonymous' as const,
-    quality: type === 'image/jpeg' ? 0.98 : undefined,
-  };
-}
-
-export async function saveBlob(blob: Blob, filename: string) {
+export async function saveBlob(blob: Blob, filename: string, opts?: { useShare?: boolean }) {
+  const { useShare = false } = opts || {};
   const file = new File([blob], filename, { type: blob.type });
-  if (navigator.canShare?.({ files: [file] })) {
+  if (useShare && navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: filename });
       return;
@@ -55,176 +67,13 @@ export async function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/* iOS Ultra-HD pipeline with size cap */
-async function preloadImage(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
+export async function copyBlob(blob: Blob) {
+  if (!('ClipboardItem' in window) || !navigator.clipboard?.write) return false;
   try {
-    const r = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
-    const b = await r.blob();
-    return URL.createObjectURL(b);
+    const item = new (window as any).ClipboardItem({ [blob.type]: blob });
+    await navigator.clipboard.write([item]);
+    return true;
   } catch {
-    return url;
-  }
-}
-
-async function localizeImages(root: HTMLElement) {
-  const imgs = Array.from(root.querySelectorAll('img'));
-  const restores: Array<() => void> = [];
-  for (const img of imgs) {
-    const src = img.getAttribute('src') || '';
-    if (!src) continue;
-    const safe = await preloadImage(src);
-    if (safe !== src) {
-      img.setAttribute('src', safe);
-      restores.push(() => {
-        img.setAttribute('src', src);
-        URL.revokeObjectURL(safe);
-      });
-    }
-    img.setAttribute('crossorigin', 'anonymous');
-    img.setAttribute('decoding', 'sync');
-    img.referrerPolicy = 'no-referrer';
-  }
-  return () => restores.forEach((fn) => fn());
-}
-
-async function inlineBackgrounds(root: HTMLElement) {
-  const els = Array.from(root.querySelectorAll<HTMLElement>('*'));
-  const urlRegex = /url\(["']?(.+?)["']?\)/g;
-  const revokes: string[] = [];
-
-  for (const el of els) {
-    const cs = getComputedStyle(el);
-    const bg = cs.backgroundImage;
-    if (!bg || bg === 'none') continue;
-
-    let newBg = bg;
-    let match: RegExpExecArray | null;
-    urlRegex.lastIndex = 0;
-
-    while ((match = urlRegex.exec(bg))) {
-      const u = match[1];
-      const safe = await preloadImage(u);
-      if (safe !== u) {
-        newBg = newBg.replace(match[0], `url("${safe}")`);
-        revokes.push(safe);
-      }
-    }
-
-    if (newBg !== bg) {
-      el.style.backgroundImage = newBg;
-      el.style.backgroundClip = 'border-box';
-    }
-  }
-
-  return () => revokes.forEach((u) => URL.revokeObjectURL(u));
-}
-
-function makeSandboxClone(node: HTMLElement, w: number, h: number) {
-  const clone = node.cloneNode(true) as HTMLElement;
-  const all = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>('*'))];
-
-  for (const el of all) {
-    el.style.transform = 'none';
-    el.style.filter = 'none';
-    el.style.backdropFilter = 'none';
-    el.style.willChange = 'auto';
-    (el.style as any).webkitTextSizeAdjust = '100%';
-    el.style.textRendering = 'geometricPrecision';
-    el.style.fontSynthesis = 'none';
-  }
-
-  clone.style.width = `${Math.round(w)}px`;
-  clone.style.height = `${Math.round(h)}px`;
-
-  const host = document.createElement('div');
-  host.style.position = 'fixed';
-  host.style.left = '-10000px';
-  host.style.top = '0';
-  host.style.opacity = '1';
-  host.style.pointerEvents = 'none';
-  host.style.zIndex = '-1';
-  host.appendChild(clone);
-  document.body.appendChild(host);
-
-  return { clone, host, dispose: () => host.remove() };
-}
-
-async function loadImage(blob: Blob) {
-  return new Promise<HTMLImageElement>((res, rej) => {
-    const im = new Image();
-    im.onload = () => res(im);
-    im.onerror = rej;
-    im.src = URL.createObjectURL(blob);
-  });
-}
-
-function drawHighQuality(
-  canvas: HTMLCanvasElement,
-  img: HTMLImageElement,
-  scale: number,
-  w: number,
-  h: number
-) {
-  // @ts-ignore
-  if ('colorSpace' in canvas) canvas.colorSpace = 'srgb';
-  const ctx = canvas.getContext('2d', { alpha: true })!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  ctx.drawImage(img, 0, 0, w, h);
-}
-
-async function progressiveUpscale(blob: Blob, baseW: number, baseH: number, targetScale: number) {
-  const img1 = await loadImage(blob);
-
-  // mid 2×
-  const mid = document.createElement('canvas');
-  mid.width = baseW * 2;
-  mid.height = baseH * 2;
-  drawHighQuality(mid, img1, 2, baseW, baseH);
-  URL.revokeObjectURL(img1.src);
-
-  const midBlob: Blob = await new Promise((res, rej) =>
-    mid.toBlob((b) => (b ? res(b) : rej(new Error('mid toBlob failed'))), 'image/png', 1)
-  );
-
-  if (targetScale <= 2) return midBlob;
-
-  const img2 = await loadImage(midBlob);
-  const out = document.createElement('canvas');
-  out.width = baseW * targetScale;
-  out.height = baseH * targetScale;
-  drawHighQuality(out, img2, targetScale / 2, mid.width, mid.height);
-  URL.revokeObjectURL(img2.src);
-
-  return await new Promise<Blob>((res, rej) =>
-    out.toBlob((b) => (b ? res(b) : rej(new Error('final toBlob failed'))), 'image/png', 1)
-  );
-}
-
-export async function captureIOSUltraHD(node: HTMLElement) {
-  const rect = node.getBoundingClientRect();
-  const maxEdge = 4096;   // common safe max on iOS
-  const scale = Math.min(getSafeScale(), Math.floor(maxEdge / Math.max(rect.width, rect.height)));
-
-  const { clone, host, dispose } = makeSandboxClone(node, rect.width, rect.height);
-  const undoImgs = await localizeImages(clone);
-  const undoBgs = await inlineBackgrounds(clone);
-
-  try {
-    const { domToBlob } = await import('modern-screenshot');
-    const base = await domToBlob(clone, {
-      ...buildOptions('image/png', 1),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
-    });
-    if (!base) throw new Error('Base capture failed');
-
-    return await progressiveUpscale(base, Math.round(rect.width), Math.round(rect.height), scale);
-  } finally {
-    undoImgs();
-    undoBgs();
-    dispose();
+    return false;
   }
 }
