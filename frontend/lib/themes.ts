@@ -144,19 +144,6 @@ export const themes: Theme[] = [
       [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
     `,
   },
-  {
-    id: 'bento',
-    name: 'Bento Card',
-    image: '/themes/color.png',
-    textColor: 'text-slate-900',
-    handleColor: 'text-slate-600',
-    statColor: 'text-slate-700',
-    cardClassName: `
-      bg-white rounded-2xl shadow-[0_10px_30px_rgba(2,6,23,0.08)]
-      border border-slate-200
-      [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
-    `,
-  },
     {
     id: 'frosted-heavy',
     name: 'Frosted Glass',
@@ -223,6 +210,143 @@ export const themes: Theme[] = [
       [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
     `,
   },
+{
+  id: 'paper-fold',
+  name: 'Paper Fold',
+  image: '/themes/white.png',
+  textColor: 'text-slate-800',
+  handleColor: 'text-slate-600',
+  statColor: 'text-slate-700',
+  cardClassName: `
+    bg-gradient-to-br from-white to-slate-50 rounded-none
+    shadow-[8px_8px_0_#e2e8f0,16px_16px_0_#cbd5e1]
+    border-l-4 border-t-4 border-slate-900
+    before:content-[''] before:absolute before:top-0 before:right-0
+    before:border-[20px] before:border-transparent before:border-r-slate-300 before:border-t-slate-300
+    before:shadow-[-4px_4px_8px_rgba(0,0,0,0.1)]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'aurora-borealis',
+  name: 'Aurora Borealis',
+  image: '/themes/city.png',
+  textColor: 'text-white',
+  handleColor: 'text-emerald-200',
+  statColor: 'text-cyan-200',
+  cardClassName: `
+    bg-slate-950 rounded-3xl border border-cyan-500/30
+    shadow-[0_25px_60px_rgba(16,185,129,0.3)]
+    [background-image:radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.4),transparent),radial-gradient(ellipse_60%_50%_at_80%_50%,rgba(6,182,212,0.3),transparent),radial-gradient(ellipse_50%_80%_at_20%_100%,rgba(139,92,246,0.25),transparent)]
+    before:content-[''] before:absolute before:inset-0 before:rounded-3xl
+    before:bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.1),transparent)]
+    before:animate-[wave_4s_ease-in-out_infinite]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'concrete-brutalist',
+  name: 'Concrete Brutalist',
+  image: '/themes/liquid.png',
+  textColor: 'text-zinc-900',
+  handleColor: 'text-zinc-700',
+  statColor: 'text-zinc-800',
+  cardClassName: `
+    bg-[#d1d5db] rounded-none border-none
+    shadow-[inset_0_2px_0_rgba(0,0,0,0.1),inset_0_-2px_0_rgba(255,255,255,0.1),12px_12px_0_#27272a]
+    [background-image:repeating-linear-gradient(0deg,rgba(0,0,0,0.03)_0px,transparent_1px,transparent_2px,rgba(0,0,0,0.03)_3px),repeating-linear-gradient(90deg,rgba(0,0,0,0.02)_0px,transparent_1px,transparent_3px,rgba(0,0,0,0.02)_4px)]
+    before:content-[''] before:absolute before:inset-0 before:opacity-40
+    before:[background-image:radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.3)_0%,transparent_50%)]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'vaporwave-grid',
+  name: 'Vaporwave Grid',
+  image: '/themes/city.png',
+  textColor: 'text-fuchsia-200',
+  handleColor: 'text-pink-300',
+  statColor: 'text-cyan-300',
+  cardClassName: `
+    bg-gradient-to-b from-purple-900 via-pink-900 to-cyan-900 rounded-2xl
+    border border-fuchsia-400/40
+    shadow-[0_20px_50px_rgba(217,70,239,0.4)]
+    [background-image:linear-gradient(rgba(217,70,239,0.2)_2px,transparent_2px),linear-gradient(90deg,rgba(217,70,239,0.2)_2px,transparent_2px)]
+    [background-size:50px_50px]
+    [perspective:1000px]
+    before:content-[''] before:absolute before:inset-0 before:rounded-2xl
+    before:bg-gradient-to-t before:from-cyan-500/20 before:to-transparent
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'obsidian-glass',
+  name: 'Obsidian',
+  image: '/themes/black.png',
+  textColor: 'text-slate-100',
+  handleColor: 'text-slate-300',
+  statColor: 'text-slate-200',
+  cardClassName: `
+    bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl
+    border border-white/10
+    shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]
+    before:content-[''] before:absolute before:inset-0 before:rounded-3xl before:opacity-30
+    before:bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.15)_0%,transparent_50%)]
+    after:content-[''] after:absolute after:inset-0 after:rounded-3xl
+    after:bg-gradient-to-br after:from-white/5 after:to-transparent
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'sakura-blossom',
+  name: 'Sakura Blossom',
+  image: '/themes/white.png',
+  textColor: 'text-pink-900',
+  handleColor: 'text-pink-700',
+  statColor: 'text-pink-800',
+  cardClassName: `
+    bg-gradient-to-br from-pink-50 via-rose-50 to-pink-100 rounded-3xl
+    border-2 border-pink-200
+    shadow-[0_20px_50px_rgba(244,114,182,0.2),inset_0_1px_0_rgba(255,255,255,0.9)]
+    [background-image:radial-gradient(circle_at_10%_20%,rgba(251,207,232,0.5)_0%,transparent_50%),radial-gradient(circle_at_90%_80%,rgba(251,207,232,0.4)_0%,transparent_50%),radial-gradient(circle_at_50%_50%,rgba(252,231,243,0.3)_0%,transparent_60%)]
+    before:content-[''] before:absolute before:inset-0 before:rounded-3xl before:opacity-20
+    before:[background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 20 L35 25 L30 30 L25 25 Z' fill='%23ec4899' opacity='0.1'/%3E%3C/svg%3E")]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'carbon-fiber',
+  name: 'Carbon Fiber',
+  image: '/themes/city.png',
+  textColor: 'text-slate-200',
+  handleColor: 'text-slate-400',
+  statColor: 'text-slate-300',
+  cardClassName: `
+    bg-[#1a1a1a] rounded-2xl border border-zinc-700
+    shadow-[0_15px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.05)]
+    [background-image:repeating-linear-gradient(45deg,#1f1f1f_0px,#1f1f1f_2px,#1a1a1a_2px,#1a1a1a_4px),repeating-linear-gradient(-45deg,#1f1f1f_0px,#1f1f1f_2px,#1a1a1a_2px,#1a1a1a_4px)]
+    before:content-[''] before:absolute before:inset-0 before:rounded-2xl before:opacity-10
+    before:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_70%)]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+{
+  id: 'sunset-gradient',
+  name: 'Sunset Gradient',
+  image: '/themes/city.png',
+  textColor: 'text-white',
+  handleColor: 'text-orange-100',
+  statColor: 'text-yellow-100',
+  cardClassName: `
+    bg-gradient-to-br from-orange-500 via-pink-500 to-purple-600 rounded-3xl
+    border border-orange-300/30
+    shadow-[0_25px_60px_rgba(249,115,22,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]
+    before:content-[''] before:absolute before:inset-0 before:rounded-3xl before:opacity-30
+    before:bg-[radial-gradient(ellipse_at_top_right,rgba(251,146,60,0.4),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(168,85,247,0.4),transparent_50%)]
+    [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
+  `,
+},
+
   {
     id: 'matte-glass',
     name: 'Clear Glass',
@@ -424,20 +548,6 @@ export const themes: Theme[] = [
     `,
   },
   {
-    id: 'metallic',
-    name: 'Metallic',
-    image: '/themes/metal.png',
-    textColor: 'text-slate-700',
-    handleColor: 'text-slate-600',
-    statColor: 'text-slate-600',
-    cardClassName: `
-      rounded-2xl border border-slate-400
-      shadow-[0_10px_30px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(0,0,0,0.3)]
-      [background:linear-gradient(135deg,#d4d4d8_0%,#e4e4e7_20%,#f4f4f5_40%,#e4e4e7_60%,#d4d4d8_80%,#a1a1aa_100%)]
-      [transform:rotate(-2deg)] hover:[transform:rotate(0deg)]
-    `,
-  },
-  {
     id: 'flame-fire',
     name: 'Flame',
     image: '/themes/flame.png',
@@ -457,8 +567,8 @@ export const themes: Theme[] = [
   },
   {
     id: 'ice-frost',
-    name: 'Ice Frost',
-    image: '/themes/frost.png',
+    name: 'Neon',
+    image: '/themes/clouds.png',
     textColor: 'text-cyan-900',
     handleColor: 'text-cyan-700',
     statColor: 'text-cyan-800',

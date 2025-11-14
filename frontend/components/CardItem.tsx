@@ -155,7 +155,7 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
         </DownloadCardButton>
         <DownloadCardButton onClick={handleShare} disabled={sharing}>
           <XLogo className="w-4 h-4" />
-          {sharing ? 'Preparing…' : 'Share to X'}
+          {sharing ? 'Preparing…' : 'Share'}
         </DownloadCardButton>
       </div>
     </div>
