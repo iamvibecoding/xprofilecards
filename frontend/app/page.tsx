@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import dynamic from 'next/dynamic';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { themes, Theme } from '@/lib/themes';
 import { 
   Loader2, Link as LinkIcon, Download, Code, Zap, 
   Palette, ArrowRight, X, Terminal, ShieldCheck, Layers, Sparkles 
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
+import Image from 'next/image';
 import {
   Accordion,
   AccordionContent,
@@ -15,74 +19,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-// --- MOCK DEPENDENCIES TO ENSURE PREVIEW WORKS ---
-
-// 1. Mock Themes
-const themes = [
-  { id: 'modern', name: 'Modern' },
-  { id: 'minimal', name: 'Minimal' },
-  { id: 'dark', name: 'Midnight' },
-  { id: 'glass', name: 'Glassmorphism' },
-  { id: 'gradient', name: 'Gradient' },
-  { id: 'retro', name: 'Retro 90s' }
-];
-
-// 2. Mock Toast
-const showToast = (message: string, type: 'success' | 'error' | 'loading' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`);
-  // In a real app, this would trigger a UI toast
-};
-
-// 3. Simplified CardItem Component (Inlined to avoid import error)
-const CardItem = ({ data, theme }: { data: any, theme: any }) => {
-  return (
-    <div className="flex flex-col w-full h-full">
-      {/* Visual Preview of the Card */}
-      <div 
-        className={`w-full aspect-[1.91/1] p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-500
-          ${theme.id === 'modern' ? 'bg-white border-2 border-slate-900 text-slate-900' : ''}
-          ${theme.id === 'minimal' ? 'bg-zinc-50 border border-zinc-200 text-zinc-800' : ''}
-          ${theme.id === 'dark' ? 'bg-black text-white border border-zinc-800' : ''}
-          ${theme.id === 'glass' ? 'bg-white/10 backdrop-blur-md text-white border border-white/20' : ''}
-          ${theme.id === 'gradient' ? 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white' : ''}
-          ${theme.id === 'retro' ? 'bg-[#ff00ff] text-yellow-300 font-mono border-4 border-yellow-300' : ''}
-          ${!['modern','minimal','dark','glass','gradient','retro'].includes(theme.id) ? 'bg-white text-black border border-slate-200' : ''}
-        `}
-      >
-         <div className="flex items-start justify-between z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0">
-                <img src={data.avatarUrl} alt={data.name} className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">{data.name}</h3>
-                <p className="opacity-60 text-sm">@{data.handle}</p>
-              </div>
-            </div>
-            {/* X Logo Mock */}
-            <svg viewBox="0 0 24 24" className="w-5 h-5 opacity-50" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-         </div>
-
-         <div className="z-10 mt-auto">
-            <p className="text-sm leading-relaxed opacity-90 mb-4 line-clamp-2">{data.bio}</p>
-            <div className="flex gap-4 text-xs font-medium opacity-70">
-              <span><span className="font-bold opacity-100">{data.followingCount}</span> Following</span>
-              <span><span className="font-bold opacity-100">{data.followersCount}</span> Followers</span>
-            </div>
-         </div>
-      </div>
-      
-      {/* Action Bar */}
-      <div className="p-3 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 flex gap-2">
-        <button className="flex-1 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-black text-xs font-bold flex items-center justify-center gap-2 hover:opacity-90">
-           <Download className="w-3 h-3" /> Save
-        </button>
-      </div>
-    </div>
-  )
-};
-
-// --- END MOCKS ---
+const CardItem = dynamic(() => import('@/components/CardItem').then(mod => ({ default: mod.CardItem })), {
+  loading: () => <div className="animate-pulse bg-slate-100 dark:bg-[#16181c] h-64 rounded-3xl border border-slate-200 dark:border-[#2f3336]" />,
+  ssr: false,
+});
 
 export interface ProfileData {
   name: string;
@@ -148,12 +88,7 @@ const TechBadge = memo(({ tech }: { tech: { icon: any; title: string } }) => (
 ));
 TechBadge.displayName = 'TechBadge';
 
-const faqData = [
-  { q: "Is this free to use?", a: "Yes. 100% free for personal use. Generate as many cards as you like." },
-  { q: "Can I use this for my business?", a: "For commercial use, please contact us for a license agreement." },
-  { q: "Why did the extraction fail?", a: "Ensure the profile is public. We cannot access private or age-restricted accounts." },
-  { q: "How is my data handled?", a: "Privacy first. We process data in-memory and discard it immediately after generation." }
-];
+// --- Main Page ---
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
@@ -194,33 +129,40 @@ export default function Page() {
     const validation = validateAndNormalizeUrl(url);
     if (!validation.valid) {
       setError(validation.error ?? null);
-      showToast(validation.error || 'Invalid URL', 'error');
+      showToast(validation.error || 'Invalid URL', 'error', 3000);
       return;
     }
 
     setIsLoading(true);
-    
-    // Use timeout to simulate API if ENV not set
-    setTimeout(() => {
-        // MOCK DATA for preview purposes
-        const mockData: ProfileData = {
-            name: "Elon Musk",
-            handle: "elonmusk",
-            bio: "Read the instructions.",
-            avatarUrl: "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            followingCount: "665",
-            followersCount: "196.2M",
-            location: "Texas",
-            website: "x.com"
-        };
-        setProfileData(mockData);
-        showToast('Profile extracted', 'success');
-        setIsLoading(false);
+    const apiEndpoint = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiEndpoint) {
+      setError("API not configured");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${apiEndpoint}/api/scrape-twitter`,
+        { twitterUrl: validation.normalizedUrl },
+        { timeout: 30000 }
+      );
+
+      if (response.data) {
+        setProfileData(response.data);
+        showToast('Profile extracted', 'success', 2000);
         setTimeout(() => {
           document.getElementById('themes')?.scrollIntoView({ behavior: 'smooth' });
         }, 300);
-    }, 1500);
-
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Profile not found or private';
+      setError(msg);
+      showToast(msg, 'error', 4000);
+    } finally {
+      setIsLoading(false);
+    }
   }, [url, validateAndNormalizeUrl]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -242,6 +184,13 @@ export default function Page() {
   ], []);
 
   if (!mounted) return null;
+
+  const faqData = [
+  { q: "Is this free to use?", a: "Yes. 100% free for personal use. Generate as many cards as you like." },
+  { q: "Can I use this for my business?", a: "For commercial use, please contact us for a license agreement." },
+  { q: "Why did the extraction fail?", a: "Ensure the profile is public. We cannot access private or age-restricted accounts." },
+  { q: "How is my data handled?", a: "Privacy first. We process data in-memory and discard it immediately after generation." }
+];
 
   return (
     <div className="min-h-screen font-sans selection:bg-sky-500/30 bg-white dark:bg-black text-slate-900 dark:text-slate-100">
