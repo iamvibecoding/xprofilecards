@@ -42,7 +42,7 @@ const StepCard = memo(({ step, index }: { step: { icon: any; title: string; desc
   const isWide = index === 0 || index === 3; 
   
   return (
-    <div className={`group relative p-8 rounded-3xl overflow-hidden border transition-all duration-300
+    <div className={`group relative p-8 rounded-3xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]
       ${isWide 
         ? 'lg:col-span-2 bg-[#000] border-[#2f3336] text-white' 
         : 'bg-white dark:bg-[#000] border-slate-200 dark:border-[#2f3336] text-slate-900 dark:text-white hover:border-sky-500/50'
@@ -204,12 +204,11 @@ export default function Page() {
       {/* Adjusted padding for mobile: pt-20 (less space), pb-12 (less bottom space) */}
       <main className="relative z-10 w-full max-w-[1400px] mx-auto pt-20 sm:pt-32">
         
-        <section className="px-6 lg:px-12 pb-12 md:pb-24 text-center">
+        {/* ADDED: animate-in fade-in slide-in-from-bottom for smooth entry */}
+        <section className="px-6 lg:px-12 pb-12 md:pb-24 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-backwards">
           
-        
-
           {/* Reduced mb-6 */}
-          <div className="inline-flex items-center gap-3 px-5 py-2 mb-6 rounded-full border border-slate-200 dark:border-[#2f3336] bg-white/50 dark:bg-[#16181c]/50 backdrop-blur-xl shadow-lg hover:border-emerald-500/30 transition-colors cursor-default">
+          <div className="inline-flex items-center gap-3 px-5 py-2 mb-6 rounded-full border border-slate-200 dark:border-[#2f3336] bg-white/50 dark:bg-[#16181c]/50 backdrop-blur-xl shadow-lg hover:border-emerald-500/30 transition-colors cursor-default animate-in fade-in slide-in-from-top-4 duration-700">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -222,7 +221,7 @@ export default function Page() {
           </div>
            {/* --- TinyLaunch Badge (Hero Position) --- */}
          {/* Reduced mb-6 for tighter mobile layout */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-6 animate-in fade-in zoom-in-75 duration-700 delay-100">
             <a 
               href="https://www.tinylaunch.com/launch/7469" 
               target="_blank" 
@@ -230,6 +229,7 @@ export default function Page() {
               className="group relative transition-all duration-300 hover:scale-105"
             >
               <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src="https://tinylaunch.com/tinylaunch_badge_live_now.svg" 
                 alt="TinyLaunch Badge" 
@@ -240,7 +240,7 @@ export default function Page() {
             </a>
           </div>
           {/* Main Landing Text: Reduced size on mobile (text-4xl) to improve flow, reduced mb-6 */}
-          <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black tracking-tighter mb-6 text-slate-900 dark:text-white leading-[1.0] sm:leading-[0.9]">
+          <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black tracking-tighter mb-6 text-slate-900 dark:text-white leading-[1.0] sm:leading-[0.9] animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100">
             The new standard for <br className="hidden sm:block" />
             <span className="bg-gradient-to-br from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-slate-500 bg-clip-text text-transparent">
               Profile Cards.
@@ -248,12 +248,12 @@ export default function Page() {
           </h1>
           
           {/* Reduced mb-8 */}
-          <p className="text-lg sm:text-xl text-slate-600 dark:text-[#71767b] max-w-2xl mx-auto mb-8 font-medium">
+          <p className="text-lg sm:text-xl text-slate-600 dark:text-[#71767b] max-w-2xl mx-auto mb-8 font-medium animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200">
             Generate production-ready assets for your X brand. <br className="hidden sm:block" />
             Zero friction. 100% Free.
           </p>
 
-          <div className="max-w-xl mx-auto relative group">
+          <div className="max-w-xl mx-auto relative group animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-500 to-blue-600 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
             <div className="relative flex items-center bg-white dark:bg-black rounded-full p-2 ring-1 ring-slate-200 dark:ring-[#2f3336] focus-within:ring-2 focus-within:ring-sky-500 transition-all shadow-xl">
               <div className="pl-4 text-slate-400">
@@ -279,22 +279,24 @@ export default function Page() {
           </div>
           
           {error && (
-            <div className="mt-6 inline-flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-4 py-2 rounded-lg border border-red-200 dark:border-red-900/50">
+            <div className="mt-6 inline-flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-4 py-2 rounded-lg border border-red-200 dark:border-red-900/50 animate-in fade-in zoom-in-95">
               <Terminal className="w-4 h-4" />
               <span className="text-sm font-mono">{error}</span>
             </div>
           )}
 
-          <div className="mt-12 flex flex-wrap justify-center gap-3 opacity-60 hover:opacity-100 transition-opacity">
+          <div className="mt-12 flex flex-wrap justify-center gap-3 opacity-60 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
             {techStack.map((tech, i) => <TechBadge key={i} tech={tech} />)}
           </div>
         </section>
 
         {/* Cinematic Demo Preview - HIDDEN ON MOBILE (hidden md:block) */}
-        <div className="relative px-6 lg:px-12 mb-16 md:mb-32 group perspective-1000 hidden md:block">
+        {/* ADDED: Smooth reveal animation for demo image */}
+        <div className="relative px-6 lg:px-12 mb-16 md:mb-32 group perspective-1000 hidden md:block animate-in fade-in zoom-in-95 duration-1000 delay-300 ease-out">
           <div className="relative max-w-[70%] mx-auto transition-transform duration-700 hover:scale-[1.01]">
             <div className="absolute inset-4 rounded-[40px] shadow-2xl shadow-sky-900/20 dark:shadow-sky-500/10 z-0"></div>
             {/* Switched to standard img tag to avoid Next.js Image error in loose mode */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/demo.png"
               alt="Demo"
@@ -303,7 +305,6 @@ export default function Page() {
               className="relative z-10 w-full h-auto object-cover rounded-[32px] border border-slate-200/60 dark:border-white/10"
               draggable={false}
               onError={(e) => {
-                  // Fallback if demo.png doesn't exist in environment
                   e.currentTarget.style.display = 'none';
               }}
             />
@@ -311,7 +312,7 @@ export default function Page() {
         </div>
 
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-24">
+          <div className="flex flex-col items-center justify-center py-24 animate-in fade-in duration-300">
             <Loader2 className="w-12 h-12 text-sky-500 animate-spin mb-6" />
             <p className="text-slate-500 dark:text-[#71767b] font-mono animate-pulse tracking-widest uppercase text-sm">
               Connecting to Neural Net...
@@ -320,7 +321,8 @@ export default function Page() {
         )}
 
         {profileData && (
-          <div id="themes" className="px-6 lg:px-12 mb-16 md:mb-32 scroll-mt-24">
+          // ADDED: Smooth scroll-in/fade-in for the results section
+          <div id="themes" className="px-6 lg:px-12 mb-16 md:mb-32 scroll-mt-24 animate-in fade-in slide-in-from-bottom-12 duration-700">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12 gap-4 border-b border-slate-200 dark:border-[#2f3336] pb-6">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight mb-2">Assets Ready</h2>
@@ -334,8 +336,9 @@ export default function Page() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-              {themes.map((theme) => (
-                <div key={theme.id} className="group flex flex-col gap-3">
+              {themes.map((theme, i) => (
+                // Added slight stagger delay based on index for grid items
+                <div key={theme.id} className="group flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-8 duration-700 fill-mode-backwards" style={{ animationDelay: `${i * 50}ms` }}>
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs font-mono font-medium text-slate-400 uppercase tracking-widest">{theme.name}</span>
                   </div>
@@ -349,7 +352,8 @@ export default function Page() {
         )}
 
         {/* --- WORKFLOW SECTION --- */}
-        <section className="bg-white dark:bg-black transition-colors duration-300">
+        {/* ADDED: Smooth scroll-in effect */}
+        <section className="bg-white dark:bg-black transition-colors duration-300 animate-in fade-in slide-in-from-bottom-16 duration-700">
            <div className="px-6 lg:px-12 py-12 md:py-24 border-t border-gray-200 dark:border-[#2f3336]">
             <div className="max-w-5xl mx-auto">
               <div className="mb-12 md:mb-16 max-w-3xl">
@@ -370,7 +374,8 @@ export default function Page() {
         </section>
 
         {/* --- FAQ SECTION --- */}
-        <section className="bg-white dark:bg-black transition-colors duration-300">
+        {/* ADDED: Smooth scroll-in effect */}
+        <section className="bg-white dark:bg-black transition-colors duration-300 animate-in fade-in slide-in-from-bottom-16 duration-700">
           <div className="px-6 lg:px-12 py-12 md:py-40 border-t border-gray-200 dark:border-[#2f3336]">
             <div className="max-w-5xl mx-auto">
               <div className="flex flex-col md:flex-row gap-10 md:gap-16">
