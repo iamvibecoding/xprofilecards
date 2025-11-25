@@ -17,41 +17,36 @@ export function ThemeToggle() {
 
   React.useEffect(() => setMounted(true), []);
 
+  // Add rounded-full here for the loading state button
   if (!mounted) {
     return (
-      <Button variant="outline" size="sm" className="h-9 w-9 px-0" />
+      <Button variant="outline" size="sm" className="h-9 w-9 px-0 rounded-full" />
     );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* Add rounded-full here for the main button */}
         <Button
           variant="outline"
           size="sm"
-          className="h-9 w-9 px-0 relative" // 👈 Add relative positioning hereßß
+          className="h-9 w-9 px-0 relative rounded-full" 
         >
-          {/* Wrap icons in a container or use absolute positioning on the icons 
-            to make them occupy the same space and align center perfectly. 
-          */}
-          
-          {/* Sun (visible in light mode only) */}
           <Sun
             className="h-[1.2rem] w-[1.2rem] z-50 text-yellow-900 
                        transition-all duration-300 rotate-0 scale-100 
-                       dark:-rotate-90 dark:scale-0 absolute" // 👈 Add absolute positioning
+                       dark:-rotate-90 dark:scale-0 absolute"
           />
 
-          {/* Moon (visible in dark mode only) */}
           <Moon
-            className=" h-[1.2rem] w-[1.2rem] text-slate-200 
+            className="h-[1.2rem] w-[1.2rem] text-slate-200 
                        transition-all duration-300 rotate-90 scale-0 
-                       dark:rotate-0 dark:scale-100 absolute" // 👈 Add absolute positioning
+                       dark:rotate-0 dark:scale-100 absolute"
           />
-          
-          {/* This invisible span acts as a placeholder to maintain the button's 
-            correct size when the icons are absolutely positioned. 
-          */}
+           {/* Good practice to include readable text for screen readers, 
+               even if visually hidden */}
+          <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
 

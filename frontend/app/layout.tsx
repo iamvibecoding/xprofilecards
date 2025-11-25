@@ -128,7 +128,6 @@ const jsonLd = {
         url: 'https://x.com/iamvibecoder',
       },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-      // Optional rich snippet; keep truthful if you collect reviews
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '5',
@@ -183,10 +182,25 @@ export default function RootLayout({
           content="https://xprofilecards.com/og-cover.png"
         />
         <meta property="og:site_name" content="X Profile Cards" />
+      </head>
 
-        {/* Google Analytics */}
+      {/* Added flex flex-col min-h-screen to fix footer positioning */}
+      <body className="flex flex-col min-h-screen bg-background text-foreground antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Navbar />
+          {/* Added flex-1 to push footer down */}
+          <main className="flex-1 container py-0">{children}</main>
+          <Footer />
+          <ToastContainer />
+        </ThemeProvider>
+
+        {/* Google Analytics - Body placement to prevent ChunkLoadErrors */}
         <Script
-          async
           src="https://www.googletagmanager.com/gtag/js?id=G-CYNXJK14L1"
           strategy="afterInteractive"
         />
@@ -198,20 +212,6 @@ export default function RootLayout({
             gtag('config', 'G-CYNXJK14L1');
           `}
         </Script>
-      </head>
-
-      <body className="min-h-screen bg-background text-foreground antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Navbar />
-          <main className="container py-0">{children}</main>
-          <Footer />
-          <ToastContainer />
-        </ThemeProvider>
       </body>
     </html>
   );

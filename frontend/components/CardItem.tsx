@@ -2,37 +2,30 @@
 
 import { useRef, useState, RefObject } from 'react';
 import { ProfileCardPreview } from '@/components/ProfileCardPreview';
-import { DownloadCardButton } from '@/components/DownloadCardButton';
 import { showToast } from '@/lib/toast';
 import { domToPng } from 'modern-screenshot';
 import {
-  copyBlob,
-  makeFilename,
-  saveBlob,
-  waitForFonts,
-  getSafeScale,
-  isIOS,
-  applyIOSTextFix,
-  removeIOSTextFix,
+  copyBlob, makeFilename, saveBlob, waitForFonts, getSafeScale, isIOS, applyIOSTextFix, removeIOSTextFix,
 } from '@/lib/capture';
 import type { Theme } from '@/lib/themes';
 import type { ProfileData } from '@/app/page';
+import { Download } from 'lucide-react';
 
-const VIRAL_MESSAGES = [
-  "Just upgraded my X profile — clean, bold, and built to stand out.\n\nMade it in seconds → https://xprofilecards.com",
-  "Your profile is your first impression. Make it look intentional.\n\nBuilt mine with X Profile Cards → https://xprofilecards.com",
-  "This hits different.\n\nMy new X card looks like something straight out of a design keynote.\n\nhttps://xprofilecards.com",
-  "Small detail. Big difference.\n\nTurned my X profile into a brand with one click.\n\nhttps://xprofilecards.com",
-  "Built my new X card today — clean, premium, and way more *me*.\n\nSee why everyone's switching → https://xprofilecards.com",
-];
-
-const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
-
+// X Logo Component
 const XLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
+
+const VIRAL_MESSAGES = [
+  "Just upgraded my X profile. Clean, bold, and built to stand out.\n\nGenerate yours → https://xprofilecards.com",
+  "Your profile is your first impression. Make it count.\n\nCreated with X Profile Cards → https://xprofilecards.com",
+  "This hits different. My new X card looks straight out of a keynote.\n\nhttps://xprofilecards.com",
+  "Small detail. Big difference. Turned my profile into a brand.\n\nhttps://xprofilecards.com",
+];
+
+const pickMsg = () => VIRAL_MESSAGES[Math.floor(Math.random() * VIRAL_MESSAGES.length)];
 
 export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
   const cardRef: RefObject<HTMLDivElement> = useRef(null);
@@ -44,40 +37,23 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
   const captureCard = async (): Promise<Blob> => {
     const node = cardRef.current;
     if (!node) throw new Error('Card not ready');
-
     await waitForFonts();
     await new Promise(r => setTimeout(r, 500));
-
     if (isIOS()) applyIOSTextFix();
 
     try {
-      const scale = getSafeScale();
-      
       const dataUrl = await domToPng(node, {
-        scale,
+        scale: getSafeScale(),
         quality: 1,
         backgroundColor: null,
-        style: {
-          margin: '0',
-          padding: '0',
-        },
+        style: { margin: '0', padding: '0' },
       });
-
       if (isIOS()) removeIOSTextFix();
-
       const res = await fetch(dataUrl);
-      const blob = await res.blob();
-
-      if (!blob || blob.size === 0) {
-        throw new Error('Generated empty image');
-      }
-
-      return blob;
+      return await res.blob();
     } catch (error: any) {
       if (isIOS()) removeIOSTextFix();
-      const msg = error?.message || 'Capture failed';
-      console.error('Capture error:', msg);
-      throw new Error(msg);
+      throw new Error(error?.message || 'Capture failed');
     }
   };
 
@@ -85,42 +61,65 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
     if (!cardRef.current) return;
     setSharing(true);
     try {
-      showToast('Rendering...', 'loading', 800);
+      showToast('Preparing...', 'loading', 800);
       const blob = await captureCard();
-      const filename = makeFilename(baseName, 'png');
-      const viral = pickMsg();
+      const file = new File([blob], makeFilename(baseName, 'png'), { type: 'image/png' });
+      const text = pickMsg();
 
-      try {
-        if (await copyBlob(blob)) showToast('📋 Copied to clipboard', 'success', 1000);
-      } catch {}
+      // Check if it's mobile/tablet to prioritize native share
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      const file = new File([blob], filename, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'My X Profile Card',
-          text: viral,
-        });
-        showToast('📸 Saved to Photos', 'success', 1800);
-      } else {
-        await saveBlob(blob, filename, { useShare: false });
-        showToast('💾 Saved image', 'success', 1200);
-      }
+      // Priority 1: Native Web Share API (Mobile/Tablet)
+      if (isMobile && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'My X Profile Card',
+            text: text,
+          });
+          showToast('Shared successfully', 'success', 2000);
+          return; // Exit if share was successful or initiated
+        } catch (shareError: any) {
+          if (shareError.name !== 'AbortError') {
+             // If share fails (not cancelled), continue to fallback
+             console.warn('Native share failed, trying fallback', shareError);
+          } else {
+            return; // User cancelled share
+          }
+        }
+      } 
+      
+      // Priority 2: Fallback to Clipboard + App Launch (Desktop or failed mobile share)
+      await copyBlob(blob);
+      showToast('Image copied! Opening X...', 'success', 2000);
+      
+      const encodedText = encodeURIComponent(text);
+      const appUrl = `twitter://post?message=${encodedText}`;
+      const webUrl = `https://x.com/intent/tweet?text=${encodedText}`;
 
-      const encoded = encodeURIComponent(viral);
-      if (isIOS()) {
+      if (isMobile) {
+        // Try to open the app directly
+        window.location.href = appUrl;
+        
+        // Fallback to web if app doesn't open within a short timeout
         setTimeout(() => {
-          window.location.href = `twitter://post?message=${encoded}`;
-        }, 1200);
+           window.open(webUrl, '_blank');
+        }, 1500);
       } else {
-        window.location.href = `twitter://post?message=${encoded}`;
+        // Desktop: Open web intent directly
+        window.open(webUrl, '_blank');
       }
 
-      showToast('✨ Opening X App…', 'success', 900);
     } catch (err: any) {
-      const msg = err?.message || 'Share failed';
-      console.error('Share error:', err);
-      showToast(`❌ ${msg}`, 'error', 2000);
+      console.error(err);
+      if (err.name !== 'AbortError') {
+         showToast('Could not share automatically. Image saved.', 'error', 3000);
+         // Last resort: just download it
+         try {
+             const blob = await captureCard();
+             await saveBlob(blob, makeFilename(baseName, 'png'), { useShare: false });
+         } catch {}
+      }
     } finally {
       setSharing(false);
     }
@@ -130,33 +129,41 @@ export function CardItem({ data, theme }: { data: ProfileData; theme: Theme }) {
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      showToast('Rendering...', 'loading', 800);
       const blob = await captureCard();
-      const filename = makeFilename(baseName, 'png');
-      await saveBlob(blob, filename, { useShare: false });
-      showToast('💾 Downloaded!', 'success', 1500);
-    } catch (err: any) {
-      const msg = err?.message || 'Download failed';
-      console.error('Download error:', err);
-      showToast(`❌ ${msg}`, 'error', 2000);
+      await saveBlob(blob, makeFilename(baseName, 'png'), { useShare: false });
+      showToast('Saved to device', 'success', 1500);
+    } catch (err) {
+      console.error(err);
     } finally {
       setDownloading(false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       <div ref={cardRef}>
         <ProfileCardPreview data={data} theme={theme} />
       </div>
-      <div className="flex gap-2">
-        <DownloadCardButton onClick={handleDownload} disabled={downloading}>
-          {downloading ? 'Downloading…' : '💾 Download'}
-        </DownloadCardButton>
-        <DownloadCardButton onClick={handleShare} disabled={sharing}>
-          <XLogo className="w-4 h-4" />
-          {sharing ? 'Preparing…' : 'Share'}
-        </DownloadCardButton>
+      
+      {/* Action Bar - X Style */}
+      <div className="flex items-center justify-between p-4 bg-white dark:bg-black border-t border-slate-100 dark:border-[#2f3336]">
+        <button 
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-slate-900 dark:bg-white text-white dark:text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {downloading ? 'Saving...' : <><Download className="w-4 h-4" /> Save</>}
+        </button>
+        
+        <div className="w-3" /> {/* Spacer */}
+        
+        <button 
+          onClick={handleShare}
+          disabled={sharing}
+          className="flex-1 flex items-center justify-center gap-2 h-9 rounded-full border border-slate-300 dark:border-[#536471] text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-50 dark:hover:bg-[#1d1f23] transition-colors disabled:opacity-50"
+        >
+          {sharing ? '...' : <><XLogo className="w-4 h-4" /> Share</>}
+        </button>
       </div>
     </div>
   );

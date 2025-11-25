@@ -4,222 +4,128 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  navigationMenuTriggerStyle,
-} from '@/components/ui/navigation-menu';
-// Import Coffee icon
 import { Github, Menu, X as CloseIcon, Coffee } from 'lucide-react';
-import { ThemeToggle } from '@/components/site/ThemeToggle'; // ThemeToggle controls the icon
-
-// Utility component for the X/Twitter logo
-const XLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>
-);
+import { ThemeToggle } from '@/components/site/ThemeToggle';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleNavClick = () => {
-    setIsMobileMenuOpen(false);
-  };
+  // Helper to close menu when a link is clicked
+  const closeMenu = () => setIsMobileMenuOpen(false);
 
   return (
     <>
       <header
-        className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? 'bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800 shadow-sm'
-            : 'bg-white/60 dark:bg-slate-950/60 backdrop-blur-md border-b border-transparent'
+            ? 'bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-[#2f3336]'
+            : 'bg-transparent border-b border-transparent'
         }`}
       >
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-bold text-xl tracking-tight"
-          >
+        <div className="container mx-auto flex h-16 items-center justify-between px-6 lg:px-12">
+          
+          {/* Logo Area */}
+          <Link href="/" className="flex items-center gap-3 group">
             <Image
               src="/logo.png"
-              alt="X Profile Cards Logo"
-              width={28}
-              height={28}
-              className="rounded-full border border-slate-200"
+              alt="Logo"
+              width={32}
+              height={32}
+              className="rounded-full border border-slate-200 dark:border-slate-800 transition-transform group-hover:scale-105"
             />
-            <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block">
               X Profile Cards
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <NavigationMenu className="hidden md:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link href="/#how-it-works" className="hover:text-blue-600 transition-colors">
-                    How it works
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link href="/#tech" className="hover:text-blue-600 transition-colors">
-                    Tech Stack
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-
-          {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="h-9">
-              <Link href="https://github.com/iamvibecoding" target="_blank" rel="noreferrer">
-                <Github className="mr-2 h-4 w-4" />
-                GitHub
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              className="h-9 bg-black hover:bg-gray-900 text-white shadow-lg"
-            >
-              <Link href="https://x.com/iamvibecoder?s=21" target="_blank" rel="noreferrer">
-                <XLogo className="mr-2 h-4 w-4" />
-                Follow
-              </Link>
-            </Button>
+          {/* DESKTOP Actions (Visible only on Large screens lg: 1024px+) */}
+          <div className="hidden lg:flex items-center gap-3">
+             <nav className="flex items-center gap-6 mr-6 text-sm font-medium text-slate-600 dark:text-[#71767b]">
+                <Link href="/#how-it-works" className="hover:text-black dark:hover:text-white transition-colors">How it works</Link>
+                <Link href="https://github.com/iamvibecoding" target="_blank" className="hover:text-black dark:hover:text-white transition-colors">GitHub</Link>
+             </nav>
             
-            {/* UPDATED: Icon first, consistent yellow background */}
-            <Button
-              asChild
-              size="sm"
-              className="h-9 bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg"
-            >
-              <Link href="https://buymeacoffee.com/iamvibecoder" target="_blank" rel="noreferrer">
+            <div className="h-6 w-px bg-slate-200 dark:bg-[#2f3336]" />
+
+            {/* Support Button (Desktop) */}
+            <Button asChild size="sm" className="h-9 rounded-full bg-amber-400 hover:bg-amber-500 text-black font-bold px-4 shadow-sm border border-amber-500/50">
+              <Link href="https://buymeacoffee.com/iamvibecoder" target="_blank">
                 <Coffee className="mr-2 h-4 w-4" />
                 Support
               </Link>
             </Button>
+
+            {/* Follow Button (Desktop) */}
+            <Button asChild size="sm" className="h-9 rounded-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 font-bold px-5">
+              <Link href="https://x.com/iamvibecoder" target="_blank">
+                Follow
+              </Link>
+            </Button>
             
-            {/* ThemeToggle component, where the light mode icon must be fixed */}
             <ThemeToggle />
           </div>
 
-          {/* Mobile controls */}
-          <div className="md:hidden flex items-center gap-2">
-            {/* ThemeToggle component, where the light mode icon must be fixed */}
+          {/* MOBILE/TABLET Menu Toggle (Visible below lg: 1024px) */}
+          <div className="lg:hidden flex items-center gap-4">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 w-9 px-0"
+            <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle menu"
+              className="p-2 text-slate-900 dark:text-white active:scale-95 transition-transform"
             >
-              {isMobileMenuOpen ? <CloseIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+              {isMobileMenuOpen ? <CloseIcon className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      {/* MOBILE/TABLET Menu Overlay */}
       {isMobileMenuOpen && (
-        // FIX: Changed z-40 to z-50 for correct layering
-        <div className="fixed inset-0 top-16 z-50 md:hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-
-          <div className="relative bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800 shadow-xl">
-            <nav className="container mx-auto px-4 py-6 flex flex-col gap-2">
-              {/* FIX: Converted links to buttons for consistency */}
-              <Button
-                asChild
-                variant="ghost"
-                className="w-full justify-start font-medium text-base text-slate-700 dark:text-slate-300"
-              >
-                <Link
-                  href="/#how-it-works"
-                  onClick={handleNavClick}
-                >
+        <div className="fixed inset-0 z-40 bg-white dark:bg-black pt-24 px-6 lg:hidden animate-in slide-in-from-top-10 duration-200 flex flex-col h-[100dvh]">
+           
+           <nav className="flex flex-col gap-3 flex-1 mt-4">
+              
+              {/* Navigation Links - Centered */}
+              <Button asChild variant="ghost" className="w-full justify-center text-lg font-medium h-12 rounded-xl" onClick={closeMenu}>
+                <Link href="/#how-it-works">
                   How it works
                 </Link>
               </Button>
-              <Button
-                asChild
-                variant="ghost"
-                className="w-full justify-start font-medium text-base text-slate-700 dark:text-slate-300"
-              >
-                <Link
-                  href="/#tech"
-                  onClick={handleNavClick}
-                >
-                  Tech Stack
+
+              <Button asChild variant="ghost" className="w-full justify-center text-lg font-medium h-12 rounded-xl" onClick={closeMenu}>
+                <Link href="https://github.com/iamvibecoding" target="_blank">
+                  GitHub
                 </Link>
               </Button>
 
-              <div className="border-t border-slate-200 dark:border-slate-800 my-2" />
-
-              <div className="flex flex-col gap-2">
-                <Button asChild variant="outline" className="w-full justify-start text-base py-6">
-                  <Link
-                    href="https://github.com/iamvibecoding"
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={handleNavClick}
-                  >
-                    <Github className="mr-2 h-4 w-4" />
-                    View on GitHub
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  className="w-full justify-start bg-black hover:bg-gray-900 text-white text-base py-6"
-                >
-                  <Link
-                    href="https://x.com/iamvibecoder?s=21"
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={handleNavClick}
-                  >
-                    <XLogo className="mr-2 h-4 w-4" />
-                    Follow on X
-                  </Link>
-                </Button>
-
-                {/* FIX: Changed bg-yellow-300 to 400 for consistency */}
-                <Button
-                  asChild
-                  className="w-full justify-start bg-yellow-400 hover:bg-yellow-500 text-black text-base py-6"
-                >
-                  <Link
-                    href="https://buymeacoffee.com/iamvibecoder"
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={handleNavClick}
-                  >
-                    <Coffee className="mr-2 h-4 w-4" />
-                    Support on Buy Me a Coffee
-                  </Link>
-                </Button>
-              </div>
-            </nav>
-          </div>
+              <div className="h-px w-full bg-slate-100 dark:bg-[#2f3336] my-4 opacity-50" />
+              
+              {/* Support Button - SOLID & TACTILE */}
+              <Button asChild className="w-full justify-center text-base font-bold h-12 rounded-full bg-amber-400 hover:bg-amber-500 text-black shadow-sm" onClick={closeMenu}>
+                <Link href="https://buymeacoffee.com/iamvibecoder" target="_blank">
+                  <Coffee className="mr-2 h-5 w-5" />
+                  Support on Buy Me a Coffee
+                </Link>
+              </Button>
+              
+              {/* Follow Button - SOLID & TACTILE */}
+              <Button asChild className="w-full justify-center text-base font-bold h-12 rounded-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 shadow-sm" onClick={closeMenu}>
+                <Link href="https://x.com/iamvibecoder" target="_blank">
+                   <svg viewBox="0 0 24 24" className="mr-2 h-5 w-5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                   Follow on X
+                </Link>
+              </Button>
+           </nav>
+           
+           <div className="pb-12 text-center text-slate-400 text-xs tracking-widest uppercase opacity-60">
+             Free Fast Simple
+           </div>
         </div>
       )}
     </>
