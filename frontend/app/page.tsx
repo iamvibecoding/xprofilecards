@@ -261,7 +261,7 @@ export default function Page() {
               </div>
               <Input
                 type="text"
-                placeholder="x.com/username"
+                placeholder="username"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -327,7 +327,7 @@ export default function Page() {
               <div>
                 <h2 className="text-3xl font-bold tracking-tight mb-2">Assets Ready</h2>
                 <p className="text-slate-500 dark:text-[#71767b]">
-                  Generated for <span className="text-sky-500 font-bold">@{profileData.handle}</span>
+                  Generated for <span className="text-sky-500 font-bold">{profileData.handle}</span>
                 </p>
               </div>
               <Button variant="ghost" onClick={() => { setProfileData(null); setUrl(''); }} className="gap-2 hover:bg-slate-100 dark:hover:bg-[#16181c]">
