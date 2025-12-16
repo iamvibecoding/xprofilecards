@@ -261,7 +261,7 @@ export default function Page() {
               </div>
               <Input
                 type="text"
-                placeholder="x username"
+                placeholder="username"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyPress={handleKeyPress}
